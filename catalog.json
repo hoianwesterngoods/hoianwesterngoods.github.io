@@ -17,15 +17,5 @@
     "Toiletries",
     "Feminine Hygiene"
   ],
-  "items": [
-    {
-      "id": "imsmuzizq52l30",
-      "name": "mitchum",
-      "price": "50k",
-      "qty": 3,
-      "note": "",
-      "category": "Toiletries",
-      "image": "images/imsmuzizq52l30.jpg"
-    }
-  ]
+  "items": []
 }
