@@ -1,0 +1,1344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>For Sale</title>
+<style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body, h1, h2, h3, h4, p, figure, blockquote, dl, dd { margin: 0; }
+    ul, ol { margin: 0; padding: 0; list-style: none; }
+    img, picture, svg, canvas { display: block; max-width: 100%; }
+    input, button, textarea, select { font: inherit; color: inherit; }
+    button { background: none; border: 0; }
+    body { min-height: 100dvh; }
+</style>
+</head>
+<body>
+<style>
+  :root {
+    --paper:   #F3F4F2;
+    --surface: #FFFFFF;
+    --sunk:    #EAECE9;
+    --line:    #DCDFDB;
+    --ink:     #171B18;
+    --muted:   #5F6862;
+    --accent:  #1F5140;
+    --on-accent: #FFFFFF;
+    --warn:    #8A5A0B;
+
+    --serif: Charter, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+    --gutter: clamp(1.1rem, 4vw, 3rem);
+    --r: 4px;
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper:   #0E110F;
+      --surface: #171B18;
+      --sunk:    #1F2420;
+      --line:    #2B312D;
+      --ink:     #EBEEEA;
+      --muted:   #99A29B;
+      --accent:  #7BC7A6;
+      --on-accent: #0E110F;
+      --warn:    #DFB268;
+      color-scheme: dark;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:   #0E110F;
+    --surface: #171B18;
+    --sunk:    #1F2420;
+    --line:    #2B312D;
+    --ink:     #EBEEEA;
+    --muted:   #99A29B;
+    --accent:  #7BC7A6;
+    --on-accent: #0E110F;
+    --warn:    #DFB268;
+    color-scheme: dark;
+  }
+
+  :root[data-theme="light"] {
+    --paper:   #F3F4F2;
+    --surface: #FFFFFF;
+    --sunk:    #EAECE9;
+    --line:    #DCDFDB;
+    --ink:     #171B18;
+    --muted:   #5F6862;
+    --accent:  #1F5140;
+    --on-accent: #FFFFFF;
+    --warn:    #8A5A0B;
+    color-scheme: light;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
+  }
+
+  *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* class rules that set display would otherwise beat the hidden attribute */
+  [hidden] { display: none !important; }
+
+  .wrap { max-width: 1140px; margin: 0 auto; padding-inline: var(--gutter); }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .masthead-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 62px;
+    padding-block: 0.7rem;
+  }
+
+  .wordmark {
+    font-family: var(--serif);
+    font-size: clamp(1.25rem, 3.4vw, 1.6rem);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+    margin: 0;
+  }
+
+  .masthead-side { display: flex; align-items: center; gap: 0.9rem; }
+
+  .contact-inline {
+    font-size: 0.86rem;
+    color: var(--muted);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .contact-inline:hover { color: var(--ink); }
+
+  @media (max-width: 620px) { .contact-inline { display: none; } }
+
+  /* ---------- intro ---------- */
+
+  .intro { padding-block: clamp(1.6rem, 5vw, 3rem) 0; }
+
+  .intro p {
+    font-family: var(--serif);
+    font-size: clamp(1.05rem, 2.4vw, 1.3rem);
+    line-height: 1.5;
+    color: var(--muted);
+    max-width: 46ch;
+    margin: 0;
+    text-wrap: pretty;
+  }
+
+  /* ---------- filter bar ---------- */
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-block: clamp(1.4rem, 4vw, 2.2rem) 1.1rem;
+  }
+
+  .filters { display: flex; gap: 0.4rem; }
+
+  .chip {
+    font-family: var(--sans);
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    padding: 0.4rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 100px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+
+  .chip:hover { color: var(--ink); border-color: var(--muted); }
+
+  .chip[aria-pressed="true"] {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: var(--paper);
+  }
+
+  .tally {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+
+  /* ---------- buttons ---------- */
+
+  .btn {
+    font-family: var(--sans);
+    font-size: 0.84rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    padding: 0.55rem 1rem;
+    border: 1px solid var(--accent);
+    border-radius: var(--r);
+    background: var(--accent);
+    color: var(--on-accent);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s ease;
+  }
+
+  .btn:hover { opacity: 0.88; }
+
+  .btn.quiet {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--line);
+  }
+
+  .btn.quiet:hover { border-color: var(--muted); opacity: 1; }
+
+  /* ---------- grid ---------- */
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1rem, 2.6vw, 1.9rem) clamp(0.9rem, 2.2vw, 1.5rem);
+    list-style: none;
+    padding-bottom: clamp(2.5rem, 7vw, 4.5rem);
+  }
+
+  @media (min-width: 640px)  { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (min-width: 1000px) { .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+  .grid > li { display: flex; }
+
+  .card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    text-align: left;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    animation: settle 0.45s ease backwards;
+  }
+
+  @keyframes settle {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  .shot {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    background: var(--sunk);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+  }
+
+  .shot img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+
+  .card:hover .shot img { transform: scale(1.03); }
+
+  .card.out .shot img { filter: grayscale(1); opacity: 0.6; }
+
+  .flag {
+    position: absolute;
+    inset-block-start: 0.55rem;
+    inset-inline-start: 0.55rem;
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.24rem 0.5rem;
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+
+  .flag.low { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+
+  .card-body { display: flex; flex-direction: column; gap: 0.15rem; margin-top: auto; }
+
+  .card-name {
+    font-family: var(--serif);
+    font-size: 1.02rem;
+    font-weight: 500;
+    line-height: 1.3;
+    text-wrap: pretty;
+  }
+
+  .card-price {
+    font-size: 0.95rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+  }
+
+  .card.out .card-name,
+  .card.out .card-price { color: var(--muted); }
+
+  /* ---------- empty ---------- */
+
+  .empty {
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--surface);
+    padding: clamp(2.5rem, 9vw, 5rem) 1.5rem;
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .empty h2 {
+    font-family: var(--serif);
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 0.3rem;
+  }
+
+  .empty p { color: var(--muted); margin: 0; font-size: 0.92rem; }
+
+  /* ---------- footer ---------- */
+
+  .foot { border-top: 1px solid var(--line); background: var(--surface); }
+
+  .foot-inner {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem 1.5rem;
+    padding-block: 1.5rem 2.4rem;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  .foot a { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line); }
+  .foot a:hover { border-color: var(--muted); }
+
+  /* ---------- sheets ---------- */
+
+  dialog {
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0;
+    width: 100%;
+    max-width: min(720px, calc(100vw - 1.5rem));
+    max-height: calc(100dvh - 1.5rem);
+    overflow: auto;
+  }
+
+  dialog::backdrop { background: rgba(10, 14, 12, 0.55); }
+
+  .sheet-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 0.85rem 1.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  .sheet-title {
+    font-size: 0.74rem;
+    font-weight: 600;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .sheet-body { padding: 1.1rem; display: flex; flex-direction: column; gap: 1.1rem; }
+
+  .detail-shot {
+    width: 100%;
+    max-height: 58dvh;
+    object-fit: contain;
+    background: var(--sunk);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    display: block;
+  }
+
+  .detail-head { display: flex; flex-direction: column; gap: 0.3rem; }
+
+  .detail-name {
+    font-family: var(--serif);
+    font-size: clamp(1.35rem, 4vw, 1.8rem);
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .detail-price {
+    font-size: 1.15rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .detail-stock { font-size: 0.86rem; color: var(--muted); }
+  .detail-stock.low { color: var(--warn); }
+
+  .detail-note {
+    font-family: var(--serif);
+    font-size: 1.02rem;
+    line-height: 1.6;
+    margin: 0;
+    max-width: 62ch;
+    white-space: pre-wrap;
+  }
+
+  .buy {
+    border-top: 1px solid var(--line);
+    padding-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.7rem;
+  }
+
+  .buy .label { font-size: 0.85rem; color: var(--muted); }
+
+  a.btn { text-decoration: none; display: inline-block; }
+
+  /* ---------- share ---------- */
+
+  .share-grid { display: grid; gap: 1.2rem; grid-template-columns: 1fr; align-items: start; }
+
+  @media (min-width: 560px) { .share-grid { grid-template-columns: 210px 1fr; } }
+
+  .qr-plate {
+    background: #FFFFFF;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 0.7rem;
+  }
+
+  /* smooth downscale keeps the modules even; pixelated would drop rows here */
+  .qr-plate img { width: 100%; display: block; }
+
+  .share-side { display: flex; flex-direction: column; gap: 0.8rem; }
+
+  .url-box {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.78rem;
+    background: var(--sunk);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 0.6rem 0.7rem;
+    word-break: break-all;
+    line-height: 1.5;
+  }
+
+  .hint { font-size: 0.86rem; color: var(--muted); margin: 0; }
+
+  .status { font-size: 0.85rem; color: var(--accent); min-height: 1.2em; }
+
+  .actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+</style>
+
+<header class="masthead">
+  <div class="wrap masthead-inner">
+    <h1 class="wordmark" id="shopName">For Sale</h1>
+    <div class="masthead-side">
+      <a class="contact-inline" id="contactTop" hidden></a>
+      <button class="btn quiet" id="shareBtn" type="button">Share</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap intro" id="intro" hidden>
+  <p id="shopTagline"></p>
+</div>
+
+<main class="wrap">
+  <div class="toolbar" id="toolbar" hidden>
+    <div class="filters" id="filters" role="group" aria-label="Filter items">
+      <button class="chip" type="button" data-filter="all" aria-pressed="true">All</button>
+      <button class="chip" type="button" data-filter="available" aria-pressed="false">Available</button>
+      <button class="chip" type="button" data-filter="out" aria-pressed="false">Sold out</button>
+    </div>
+    <span class="tally" id="tally"></span>
+  </div>
+
+  <ul class="grid" id="grid"></ul>
+
+  <div class="empty" id="empty" hidden>
+    <h2>Nothing listed yet</h2>
+    <p>Items appear here as soon as they're added.</p>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-inner">
+    <span id="contactFoot"></span>
+    <span id="footTally"></span>
+  </div>
+</footer>
+
+<dialog id="detailDlg" aria-label="Item details">
+  <div class="sheet-head">
+    <h2 class="sheet-title">Item</h2>
+    <button class="btn quiet" type="button" data-close="detailDlg">Close</button>
+  </div>
+  <div class="sheet-body" id="detailBody"></div>
+</dialog>
+
+<dialog id="shareDlg" aria-label="Share this page">
+  <div class="sheet-head">
+    <h2 class="sheet-title">Share</h2>
+    <button class="btn quiet" type="button" data-close="shareDlg">Close</button>
+  </div>
+  <div class="sheet-body">
+    <div class="share-grid">
+      <div class="qr-plate" id="qrPlate"></div>
+      <div class="share-side">
+        <p class="hint">Point a phone camera at the code, or send the link.</p>
+        <div class="url-box" id="urlBox"></div>
+        <div class="actions">
+          <button class="btn" type="button" id="copyLink">Copy link</button>
+          <button class="btn quiet" type="button" id="printQr">Print the code</button>
+        </div>
+        <p class="status" id="shareStatus"></p>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<script>
+/* Minimal QR encoder: byte mode, error correction level M, versions 1-10.
+   Returns a square matrix of 0/1 modules with no quiet zone.
+   Enough for any URL this shop will ever sit at (213 bytes at version 10). */
+(function (global) {
+  "use strict";
+
+  /* ---- GF(256), primitive polynomial 0x11D ---- */
+
+  var EXP = new Uint8Array(512);
+  var LOG = new Uint8Array(256);
+  (function () {
+    var x = 1;
+    for (var i = 0; i < 255; i++) {
+      EXP[i] = x;
+      LOG[x] = i;
+      x <<= 1;
+      if (x & 0x100) { x ^= 0x11D; }
+    }
+    for (var j = 255; j < 512; j++) { EXP[j] = EXP[j - 255]; }
+  })();
+
+  function gmul(a, b) {
+    return (a === 0 || b === 0) ? 0 : EXP[LOG[a] + LOG[b]];
+  }
+
+  function generatorPoly(degree) {
+    var poly = [1];
+    for (var i = 0; i < degree; i++) {
+      var next = new Array(poly.length + 1);
+      for (var k = 0; k < next.length; k++) { next[k] = 0; }
+      for (var j = 0; j < poly.length; j++) {
+        next[j] ^= poly[j];
+        next[j + 1] ^= gmul(poly[j], EXP[i]);
+      }
+      poly = next;
+    }
+    return poly;
+  }
+
+  function remainder(data, ecLength) {
+    var gen = generatorPoly(ecLength);
+    var buf = new Uint8Array(data.length + ecLength);
+    buf.set(data);
+    for (var i = 0; i < data.length; i++) {
+      var lead = buf[i];
+      if (lead === 0) { continue; }
+      for (var j = 0; j < gen.length; j++) {
+        buf[i + j] ^= gmul(gen[j], lead);
+      }
+    }
+    return buf.subarray(data.length);
+  }
+
+  /* ---- version tables for level M ---- */
+
+  /* version: [ecCodewordsPerBlock, [[blockCount, dataCodewordsPerBlock], ...]] */
+  var SPEC = {
+    1:  [10, [[1, 16]]],
+    2:  [16, [[1, 28]]],
+    3:  [26, [[1, 44]]],
+    4:  [18, [[2, 32]]],
+    5:  [24, [[2, 43]]],
+    6:  [16, [[4, 27]]],
+    7:  [18, [[4, 31]]],
+    8:  [22, [[2, 38], [2, 39]]],
+    9:  [22, [[3, 36], [2, 37]]],
+    10: [26, [[4, 43], [1, 44]]]
+  };
+
+  var ALIGN = {
+    1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30],
+    6: [6, 34], 7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50]
+  };
+
+  function dataCodewords(version) {
+    var total = 0;
+    SPEC[version][1].forEach(function (g) { total += g[0] * g[1]; });
+    return total;
+  }
+
+  function utf8Bytes(text) {
+    var out = [];
+    var encoded = unescape(encodeURIComponent(text));
+    for (var i = 0; i < encoded.length; i++) { out.push(encoded.charCodeAt(i) & 0xFF); }
+    return out;
+  }
+
+  /* ---- bitstream -> interleaved codewords ---- */
+
+  function buildCodewords(bytes, version) {
+    var spec = SPEC[version];
+    var capacity = dataCodewords(version) * 8;
+    var countBits = version < 10 ? 8 : 16;
+    var bits = [];
+
+    function push(value, length) {
+      for (var i = length - 1; i >= 0; i--) { bits.push((value >> i) & 1); }
+    }
+
+    push(4, 4);
+    push(bytes.length, countBits);
+    for (var i = 0; i < bytes.length; i++) { push(bytes[i], 8); }
+
+    push(0, Math.min(4, capacity - bits.length));
+    while (bits.length % 8 !== 0) { bits.push(0); }
+    var pad = [0xEC, 0x11];
+    var p = 0;
+    while (bits.length < capacity) { push(pad[p++ % 2], 8); }
+
+    var words = new Uint8Array(capacity / 8);
+    for (var b = 0; b < words.length; b++) {
+      var v = 0;
+      for (var k = 0; k < 8; k++) { v = (v << 1) | bits[b * 8 + k]; }
+      words[b] = v;
+    }
+
+    var dataBlocks = [];
+    var ecBlocks = [];
+    var offset = 0;
+    spec[1].forEach(function (group) {
+      for (var n = 0; n < group[0]; n++) {
+        var block = words.subarray(offset, offset + group[1]);
+        offset += group[1];
+        dataBlocks.push(block);
+        ecBlocks.push(remainder(block, spec[0]));
+      }
+    });
+
+    var result = [];
+    var longest = 0;
+    dataBlocks.forEach(function (b) { longest = Math.max(longest, b.length); });
+    for (var col = 0; col < longest; col++) {
+      dataBlocks.forEach(function (b) { if (col < b.length) { result.push(b[col]); } });
+    }
+    for (var e = 0; e < spec[0]; e++) {
+      ecBlocks.forEach(function (b) { result.push(b[e]); });
+    }
+    return result;
+  }
+
+  /* ---- matrix ---- */
+
+  function blank(size) {
+    var grid = [];
+    for (var r = 0; r < size; r++) {
+      var row = new Int8Array(size);
+      row.fill(-1);
+      grid.push(row);
+    }
+    return grid;
+  }
+
+  function placeFinder(grid, row, col) {
+    for (var r = -1; r <= 7; r++) {
+      for (var c = -1; c <= 7; c++) {
+        var rr = row + r;
+        var cc = col + c;
+        if (rr < 0 || cc < 0 || rr >= grid.length || cc >= grid.length) { continue; }
+        var inRing = (r >= 0 && r <= 6 && (c === 0 || c === 6)) ||
+                     (c >= 0 && c <= 6 && (r === 0 || r === 6));
+        var inCore = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+        grid[rr][cc] = (inRing || inCore) ? 1 : 0;
+      }
+    }
+  }
+
+  function placeAlignment(grid, row, col) {
+    for (var r = -2; r <= 2; r++) {
+      for (var c = -2; c <= 2; c++) {
+        var edge = Math.max(Math.abs(r), Math.abs(c));
+        grid[row + r][col + c] = (edge !== 1) ? 1 : 0;
+      }
+    }
+  }
+
+  function functionPatterns(grid, version) {
+    var size = grid.length;
+
+    placeFinder(grid, 0, 0);
+    placeFinder(grid, 0, size - 7);
+    placeFinder(grid, size - 7, 0);
+
+    for (var i = 8; i < size - 8; i++) {
+      var bit = (i % 2 === 0) ? 1 : 0;
+      grid[6][i] = bit;
+      grid[i][6] = bit;
+    }
+
+    var centers = ALIGN[version];
+    for (var a = 0; a < centers.length; a++) {
+      for (var b = 0; b < centers.length; b++) {
+        var r = centers[a];
+        var c = centers[b];
+        var nearFinder = (r <= 8 && c <= 8) ||
+                         (r <= 8 && c >= size - 9) ||
+                         (r >= size - 9 && c <= 8);
+        if (!nearFinder) { placeAlignment(grid, r, c); }
+      }
+    }
+
+    /* reserve the format strips (value filled in after masking) */
+    for (var f = 0; f <= 8; f++) {
+      if (grid[8][f] === -1) { grid[8][f] = 0; }
+      if (grid[f][8] === -1) { grid[f][8] = 0; }
+    }
+    for (var g = 0; g < 8; g++) {
+      if (grid[8][size - 1 - g] === -1) { grid[8][size - 1 - g] = 0; }
+      if (grid[size - 1 - g][8] === -1) { grid[size - 1 - g][8] = 0; }
+    }
+    grid[size - 8][8] = 1; /* always-dark module */
+
+    if (version >= 7) {
+      for (var v = 0; v < 18; v++) {
+        grid[size - 11 + (v % 3)][Math.floor(v / 3)] = 0;
+        grid[Math.floor(v / 3)][size - 11 + (v % 3)] = 0;
+      }
+    }
+  }
+
+  function reservedMask(version, size) {
+    var probe = blank(size);
+    functionPatterns(probe, version);
+    var taken = [];
+    for (var r = 0; r < size; r++) {
+      var row = new Uint8Array(size);
+      for (var c = 0; c < size; c++) { row[c] = probe[r][c] === -1 ? 0 : 1; }
+      taken.push(row);
+    }
+    return taken;
+  }
+
+  function placeData(grid, taken, codewords) {
+    var size = grid.length;
+    var bitIndex = 0;
+    var total = codewords.length * 8;
+    var upward = true;
+
+    for (var right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) { right = 5; }
+      for (var step = 0; step < size; step++) {
+        var row = upward ? (size - 1 - step) : step;
+        for (var lane = 0; lane < 2; lane++) {
+          var col = right - lane;
+          if (taken[row][col]) { continue; }
+          var bit = 0;
+          if (bitIndex < total) {
+            bit = (codewords[bitIndex >> 3] >> (7 - (bitIndex & 7))) & 1;
+          }
+          grid[row][col] = bit;
+          bitIndex++;
+        }
+      }
+      upward = !upward;
+    }
+  }
+
+  var MASKS = [
+    function (i, j) { return (i + j) % 2 === 0; },
+    function (i) { return i % 2 === 0; },
+    function (i, j) { return j % 3 === 0; },
+    function (i, j) { return (i + j) % 3 === 0; },
+    function (i, j) { return (Math.floor(i / 2) + Math.floor(j / 3)) % 2 === 0; },
+    function (i, j) { return ((i * j) % 2) + ((i * j) % 3) === 0; },
+    function (i, j) { return (((i * j) % 2) + ((i * j) % 3)) % 2 === 0; },
+    function (i, j) { return (((i + j) % 2) + ((i * j) % 3)) % 2 === 0; }
+  ];
+
+  function penalty(grid) {
+    var size = grid.length;
+    var score = 0;
+    var r, c, run, dark = 0;
+
+    /* rule 1: runs of five or more */
+    for (r = 0; r < size; r++) {
+      run = 1;
+      for (c = 1; c < size; c++) {
+        if (grid[r][c] === grid[r][c - 1]) {
+          run++;
+          if (run === 5) { score += 3; } else if (run > 5) { score += 1; }
+        } else { run = 1; }
+      }
+    }
+    for (c = 0; c < size; c++) {
+      run = 1;
+      for (r = 1; r < size; r++) {
+        if (grid[r][c] === grid[r - 1][c]) {
+          run++;
+          if (run === 5) { score += 3; } else if (run > 5) { score += 1; }
+        } else { run = 1; }
+      }
+    }
+
+    /* rule 2: 2x2 blocks of one colour */
+    for (r = 0; r < size - 1; r++) {
+      for (c = 0; c < size - 1; c++) {
+        var v = grid[r][c];
+        if (v === grid[r][c + 1] && v === grid[r + 1][c] && v === grid[r + 1][c + 1]) {
+          score += 3;
+        }
+      }
+    }
+
+    /* rule 3: finder-like 1:1:3:1:1 sequences with four light modules beside them */
+    var A = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0];
+    var B = [0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1];
+    function matches(cells, pattern) {
+      for (var k = 0; k < pattern.length; k++) { if (cells[k] !== pattern[k]) { return false; } }
+      return true;
+    }
+    for (r = 0; r < size; r++) {
+      for (c = 0; c + 11 <= size; c++) {
+        var hor = [];
+        for (var h = 0; h < 11; h++) { hor.push(grid[r][c + h]); }
+        if (matches(hor, A) || matches(hor, B)) { score += 40; }
+      }
+    }
+    for (c = 0; c < size; c++) {
+      for (r = 0; r + 11 <= size; r++) {
+        var ver = [];
+        for (var w = 0; w < 11; w++) { ver.push(grid[r + w][c]); }
+        if (matches(ver, A) || matches(ver, B)) { score += 40; }
+      }
+    }
+
+    /* rule 4: overall balance of dark modules */
+    for (r = 0; r < size; r++) {
+      for (c = 0; c < size; c++) { if (grid[r][c]) { dark++; } }
+    }
+    var percent = (dark * 100) / (size * size);
+    score += Math.floor(Math.abs(percent - 50) / 5) * 10;
+    return score;
+  }
+
+  function formatBits(mask) {
+    var data = (0 << 3) | mask; /* level M is 0b00 */
+    var rem = data << 10;
+    for (var i = 14; i >= 10; i--) {
+      if (rem & (1 << i)) { rem ^= 0x537 << (i - 10); }
+    }
+    return ((data << 10) | rem) ^ 0x5412;
+  }
+
+  function versionBits(version) {
+    var rem = version << 12;
+    for (var i = 17; i >= 12; i--) {
+      if (rem & (1 << i)) { rem ^= 0x1F25 << (i - 12); }
+    }
+    return (version << 12) | rem;
+  }
+
+  function writeFormat(grid, mask) {
+    var size = grid.length;
+    var bits = formatBits(mask);
+    for (var i = 0; i <= 14; i++) {
+      /* position i carries format bit 14 - i (most significant first) */
+      var bit = (bits >> (14 - i)) & 1;
+      if (i <= 5) { grid[8][i] = bit; }
+      else if (i === 6) { grid[8][7] = bit; }
+      else if (i === 7) { grid[8][8] = bit; }
+      else if (i === 8) { grid[7][8] = bit; }
+      else { grid[14 - i][8] = bit; }
+
+      /* second copy: 7 modules up the left column, 8 along the top row */
+      if (i <= 6) { grid[size - 1 - i][8] = bit; }
+      else { grid[8][size - 15 + i] = bit; }
+    }
+    grid[size - 8][8] = 1;
+  }
+
+  function writeVersion(grid, version) {
+    if (version < 7) { return; }
+    var size = grid.length;
+    var bits = versionBits(version);
+    for (var i = 0; i < 18; i++) {
+      var bit = (bits >> i) & 1;
+      grid[size - 11 + (i % 3)][Math.floor(i / 3)] = bit;
+      grid[Math.floor(i / 3)][size - 11 + (i % 3)] = bit;
+    }
+  }
+
+  function generate(text) {
+    var bytes = utf8Bytes(text);
+    var version = 0;
+    for (var v = 1; v <= 10; v++) {
+      var countBits = v < 10 ? 8 : 16;
+      if (bytes.length * 8 + 4 + countBits <= dataCodewords(v) * 8) { version = v; break; }
+    }
+    if (!version) { throw new Error("That address is too long for a QR code."); }
+
+    var size = version * 4 + 17;
+    var codewords = buildCodewords(bytes, version);
+    var taken = reservedMask(version, size);
+
+    var base = blank(size);
+    functionPatterns(base, version);
+    placeData(base, taken, codewords);
+
+    var best = null;
+    var bestScore = Infinity;
+    for (var m = 0; m < 8; m++) {
+      var trial = [];
+      for (var r = 0; r < size; r++) {
+        var row = new Int8Array(size);
+        for (var c = 0; c < size; c++) {
+          row[c] = taken[r][c] ? base[r][c] : (base[r][c] ^ (MASKS[m](r, c) ? 1 : 0));
+        }
+        trial.push(row);
+      }
+      writeFormat(trial, m);
+      writeVersion(trial, version);
+      var score = penalty(trial);
+      if (score < bestScore) { bestScore = score; best = trial; }
+    }
+
+    var matrix = [];
+    for (var y = 0; y < size; y++) {
+      var out = [];
+      for (var x = 0; x < size; x++) { out.push(best[y][x] ? 1 : 0); }
+      matrix.push(out);
+    }
+    return { version: version, size: size, matrix: matrix };
+  }
+
+  global.makeQR = generate;
+})(typeof window !== "undefined" ? window : this);
+</script>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ===== catalog =====
+     Loaded from catalog.json beside this page; the admin page rewrites that file. */
+  var CATALOG = { version: 2, name: "For Sale", tagline: "", contact: "", items: [] };
+
+  /* phones are the main way this page gets opened, so make sure the
+     layout viewport is set even if the host page didn't declare one */
+  if (!document.querySelector('meta[name="viewport"]')) {
+    var vp = document.createElement("meta");
+    vp.name = "viewport";
+    vp.content = "width=device-width, initial-scale=1";
+    document.head.appendChild(vp);
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function showSheet(id) {
+    var dlg = $(id);
+    dlg.showModal();
+    dlg.scrollTop = 0;
+  }
+
+  /* ---------- catalog helpers ---------- */
+
+  /* older catalogs used a sold flag; stock counts replaced it */
+  function stockOf(it) {
+    if (typeof it.qty === "number") { return Math.max(0, Math.floor(it.qty)); }
+    return it.sold ? 0 : 1;
+  }
+
+  function formatPrice(raw) {
+    var s = String(raw == null ? "" : raw).trim();
+    if (!s) { return ""; }
+    var bare = s.replace(/[$,\s]/g, "");
+    if (/^\d+(\.\d+)?$/.test(bare)) {
+      var n = parseFloat(bare);
+      var whole = Math.round(n * 100) % 100 === 0;
+      return "$" + n.toLocaleString("en-US", {
+        minimumFractionDigits: whole ? 0 : 2,
+        maximumFractionDigits: 2
+      });
+    }
+    return s;
+  }
+
+  function stockLabel(n) {
+    if (n === 0) { return "Sold out"; }
+    if (n === 1) { return "Last one"; }
+    return n + " available";
+  }
+
+  /* turn a contact line into a tappable link where we can be confident */
+  function contactLink(raw) {
+    var s = String(raw || "").trim();
+    if (!s) { return null; }
+    var email = s.match(/[^\s<>()]+@[^\s<>()]+\.[a-z]{2,}/i);
+    if (email) { return { href: "mailto:" + email[0], text: s }; }
+    var digits = s.replace(/[^\d+]/g, "");
+    if (digits.replace(/\D/g, "").length >= 7) { return { href: "tel:" + digits, text: s }; }
+    return null;
+  }
+
+  /* ---------- render ---------- */
+
+  var filter = "all";
+
+  function visibleItems() {
+    var items = CATALOG.items || [];
+    if (filter === "available") { return items.filter(function (it) { return stockOf(it) > 0; }); }
+    if (filter === "out") { return items.filter(function (it) { return stockOf(it) === 0; }); }
+    return items;
+  }
+
+  function renderShop() {
+    var name = CATALOG.name || "For Sale";
+    document.title = name;
+    $("shopName").textContent = name;
+
+    if (CATALOG.tagline) {
+      $("shopTagline").textContent = CATALOG.tagline;
+      $("intro").hidden = false;
+    }
+
+    var link = contactLink(CATALOG.contact);
+    var footEl = $("contactFoot");
+    if (link) {
+      var a = document.createElement("a");
+      a.href = link.href;
+      a.textContent = link.text;
+      footEl.textContent = "";
+      footEl.appendChild(a);
+      var top = $("contactTop");
+      top.href = link.href;
+      top.textContent = link.text;
+      top.hidden = false;
+    } else {
+      footEl.textContent = CATALOG.contact || "";
+    }
+
+    var items = CATALOG.items || [];
+    var out = items.filter(function (it) { return stockOf(it) === 0; }).length;
+    var live = items.length - out;
+
+    $("toolbar").hidden = items.length === 0;
+    $("filters").hidden = out === 0;
+    $("tally").textContent = items.length
+      ? live + (live === 1 ? " item" : " items") + " available"
+      : "";
+    $("footTally").textContent = items.length
+      ? items.length + (items.length === 1 ? " listing" : " listings")
+      : "";
+
+    renderGrid();
+  }
+
+  function renderGrid() {
+    var grid = $("grid");
+    var list = visibleItems();
+    grid.textContent = "";
+    $("empty").hidden = (CATALOG.items || []).length > 0;
+
+    list.forEach(function (it, i) {
+      var n = stockOf(it);
+      var li = document.createElement("li");
+      var card = document.createElement("button");
+      card.type = "button";
+      card.className = "card" + (n === 0 ? " out" : "");
+      card.style.animationDelay = Math.min(i * 35, 350) + "ms";
+
+      var shot = document.createElement("div");
+      shot.className = "shot";
+      if (it.image) {
+        var img = document.createElement("img");
+        img.src = it.image;
+        img.alt = it.name || "Item photo";
+        img.loading = i < 6 ? "eager" : "lazy";
+        shot.appendChild(img);
+      }
+      if (n === 0 || n === 1) {
+        var flag = document.createElement("span");
+        flag.className = "flag" + (n === 1 ? " low" : "");
+        flag.textContent = n === 0 ? "Sold out" : "Last one";
+        shot.appendChild(flag);
+      }
+
+      var body = document.createElement("div");
+      body.className = "card-body";
+      var nm = document.createElement("span");
+      nm.className = "card-name";
+      nm.textContent = it.name || "Untitled";
+      var pr = document.createElement("span");
+      pr.className = "card-price";
+      pr.textContent = formatPrice(it.price);
+      body.appendChild(nm);
+      body.appendChild(pr);
+
+      card.appendChild(shot);
+      card.appendChild(body);
+      card.addEventListener("click", function () { openDetail(it); });
+      li.appendChild(card);
+      grid.appendChild(li);
+    });
+  }
+
+  function openDetail(it) {
+    var n = stockOf(it);
+    var body = $("detailBody");
+    body.textContent = "";
+
+    if (it.image) {
+      var img = document.createElement("img");
+      img.className = "detail-shot";
+      img.src = it.image;
+      img.alt = it.name || "Item photo";
+      body.appendChild(img);
+    }
+
+    var head = document.createElement("div");
+    head.className = "detail-head";
+
+    var h = document.createElement("h3");
+    h.className = "detail-name";
+    h.textContent = it.name || "Untitled";
+    head.appendChild(h);
+
+    var p = document.createElement("span");
+    p.className = "detail-price";
+    p.textContent = formatPrice(it.price);
+    head.appendChild(p);
+
+    var s = document.createElement("span");
+    s.className = "detail-stock" + (n === 1 ? " low" : "");
+    s.textContent = stockLabel(n);
+    head.appendChild(s);
+    body.appendChild(head);
+
+    if (it.note) {
+      var note = document.createElement("p");
+      note.className = "detail-note";
+      note.textContent = it.note;
+      body.appendChild(note);
+    }
+
+    if (CATALOG.contact && n > 0) {
+      var buy = document.createElement("div");
+      buy.className = "buy";
+      var lab = document.createElement("span");
+      lab.className = "label";
+      lab.textContent = "To buy this item:";
+      buy.appendChild(lab);
+      var link = contactLink(CATALOG.contact);
+      if (link) {
+        var a = document.createElement("a");
+        a.className = "btn";
+        a.href = link.href;
+        a.textContent = link.text;
+        buy.appendChild(a);
+      } else {
+        var span = document.createElement("span");
+        span.textContent = CATALOG.contact;
+        buy.appendChild(span);
+      }
+      body.appendChild(buy);
+    }
+
+    showSheet("detailDlg");
+  }
+
+  /* ---------- filters ---------- */
+
+  Array.prototype.forEach.call($("filters").querySelectorAll(".chip"), function (chip) {
+    chip.addEventListener("click", function () {
+      filter = chip.getAttribute("data-filter");
+      Array.prototype.forEach.call($("filters").querySelectorAll(".chip"), function (c) {
+        c.setAttribute("aria-pressed", String(c === chip));
+      });
+      renderGrid();
+    });
+  });
+
+  /* ---------- share ---------- */
+
+  /* draw a QR for whatever address this page is served from */
+  var qrCache = {};
+  function qrDataUri(text) {
+    if (qrCache[text] !== undefined) { return qrCache[text]; }
+    var uri = null;
+    try {
+      var q = makeQR(text);
+      var scale = 8;
+      var quiet = 4;
+      var px = (q.size + quiet * 2) * scale;
+      var cv = document.createElement("canvas");
+      cv.width = px;
+      cv.height = px;
+      var ctx = cv.getContext("2d");
+      ctx.fillStyle = "#FFFFFF";
+      ctx.fillRect(0, 0, px, px);
+      ctx.fillStyle = "#000000";
+      for (var r = 0; r < q.size; r++) {
+        for (var c = 0; c < q.size; c++) {
+          if (q.matrix[r][c]) {
+            ctx.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale);
+          }
+        }
+      }
+      uri = cv.toDataURL("image/png");
+    } catch (e) {
+      uri = null;
+    }
+    qrCache[text] = uri;
+    return uri;
+  }
+
+  function shareUrl() { return location.origin + location.pathname; }
+
+  $("shareBtn").addEventListener("click", function () {
+    $("urlBox").textContent = shareUrl();
+    var plate = $("qrPlate");
+    plate.textContent = "";
+    var uri = qrDataUri(shareUrl());
+    if (uri) {
+      var img = document.createElement("img");
+      img.src = uri;
+      img.alt = "QR code linking to this page";
+      plate.appendChild(img);
+      plate.hidden = false;
+    } else {
+      plate.hidden = true;
+    }
+    $("shareStatus").textContent = "";
+    showSheet("shareDlg");
+  });
+
+  $("copyLink").addEventListener("click", function () {
+    var url = shareUrl();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(function () {
+        $("shareStatus").textContent = "Link copied.";
+      }, function () {
+        $("shareStatus").textContent = "Couldn't copy \u2014 select the address above and copy it.";
+      });
+    } else {
+      $("shareStatus").textContent = "Select the address above and copy it.";
+    }
+  });
+
+  $("printQr").addEventListener("click", function () {
+    var printUri = qrDataUri(shareUrl());
+    if (!printUri) {
+      $("shareStatus").textContent = "The code couldn't be drawn.";
+      return;
+    }
+    var w = window.open("", "_blank");
+    if (!w) {
+      $("shareStatus").textContent = "Your browser blocked the print window. Allow pop-ups and try again.";
+      return;
+    }
+    var title = (CATALOG.name || "For Sale").replace(/[<&]/g, "");
+    w.document.write(
+      '<!doctype html><meta charset="utf-8"><title>' + title + '</title>' +
+      '<style>body{margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;' +
+      'font-family:Charter,Georgia,serif;text-align:center;color:#111}' +
+      'img{width:78mm}h1{font-size:26pt;font-weight:600;margin:0 0 14pt}' +
+      'p{font-family:ui-monospace,Menlo,monospace;font-size:9.5pt;word-break:break-all;max-width:78mm;margin:12pt auto 0;color:#555}' +
+      '</style><div><h1>' + title + '</h1><img src="' + printUri + '" alt="QR code" />' +
+      '<p>' + shareUrl() + '</p></div>'
+    );
+    w.document.close();
+    w.focus();
+    setTimeout(function () { w.print(); }, 350);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll("[data-close]"), function (b) {
+    b.addEventListener("click", function () { $(b.getAttribute("data-close")).close(); });
+  });
+
+  /* cache-buster so a freshly published catalog shows up straight away */
+  fetch("catalog.json?t=" + Date.now(), { cache: "no-store" })
+    .then(function (res) {
+      if (!res.ok) { throw new Error("HTTP " + res.status); }
+      return res.json();
+    })
+    .then(function (data) {
+      if (data && Array.isArray(data.items)) { CATALOG = data; }
+      renderShop();
+    })
+    .catch(function () {
+      renderShop();
+      $("empty").hidden = false;
+      $("empty").querySelector("h2").textContent = "This shop couldn't load";
+      $("empty").querySelector("p").textContent =
+        "Check back in a minute \u2014 it may still be updating.";
+    });
+})();
+</script>
+</body>
+</html>
