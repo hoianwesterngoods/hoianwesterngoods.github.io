@@ -702,35 +702,6 @@
 
   .field textarea { resize: vertical; min-height: 3.4rem; line-height: 1.5; }
 
-  /* ---------- payment ---------- */
-
-  .pay-plate {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.7rem;
-    border: 1px solid var(--line);
-    border-radius: var(--r);
-    background: var(--surface);
-    padding: 1rem;
-    text-align: center;
-  }
-
-  .pay-plate img {
-    width: min(260px, 68vw);
-    background: #FFFFFF;
-    border: 1px solid var(--line);
-    border-radius: var(--r);
-    padding: 0.5rem;
-  }
-
-  .pay-amount {
-    font-family: var(--serif);
-    font-size: 1.3rem;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
   /* ---------- order summary ---------- */
 
   .summary {
@@ -771,6 +742,25 @@
   }
 
   .btn.wide { flex: 1; min-width: 150px; text-align: center; }
+
+  /* ---------- order placed ---------- */
+
+  .placed {
+    border: 1px solid var(--accent);
+    border-radius: var(--r);
+    background: var(--surface);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .placed h3 {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0;
+  }
 </style>
 </head>
 <body>
@@ -849,7 +839,7 @@
           <input type="text" id="buyerName" autocomplete="name" />
         </label>
         <label class="field">
-          <span>Phone</span>
+          <span>WhatsApp number</span>
           <input type="tel" id="buyerPhone" autocomplete="tel" />
         </label>
         <label class="field wide" id="addressField">
@@ -858,18 +848,6 @@
         </label>
       </div>
     </fieldset>
-
-    <fieldset class="choices" id="payGroup">
-      <legend>How do you want to pay?</legend>
-      <div class="options" id="payOptions"></div>
-    </fieldset>
-
-    <div class="pay-plate" id="payPlate" hidden>
-      <p class="note">Scan this with your banking app</p>
-      <img id="payQrImg" alt="Payment QR code" />
-      <span class="pay-amount" id="payAmount"></span>
-      <p class="note">Send the payment, then send your order below so the seller knows it's coming.</p>
-    </div>
 
     <fieldset class="choices">
       <legend>Your order</legend>
@@ -1342,7 +1320,7 @@
   var CATALOG = {
     version: 3, name: "For Sale", tagline: "", contact: "", currency: "VND",
     orderPhone: "", collection: true, delivery: true, deliveryNote: "",
-    payCash: true, payTransfer: true, payQr: "", categories: [], items: []
+    categories: [], items: []
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -1761,13 +1739,6 @@
     return out;
   }
 
-  function payChoices() {
-    var out = [];
-    if (CATALOG.payCash !== false) { out.push({ key: "cash", label: "Cash", sub: "Pay when you get it" }); }
-    if (CATALOG.payTransfer !== false && CATALOG.payQr) { out.push({ key: "transfer", label: "Bank transfer", sub: "Scan a QR code to pay now" }); }
-    return out;
-  }
-
   function renderRadios(box, name, choices, current, onPick) {
     box.textContent = "";
     choices.forEach(function (choice) {
@@ -1794,7 +1765,6 @@
   }
 
   var how = "";
-  var pay = "";
 
   function basketTotal() {
     var total = 0;
@@ -1823,13 +1793,12 @@
     lines.push("Total: " + formatMoney(sum.total) + (sum.unknown ? " (plus items with no set price)" : ""));
     lines.push("");
     lines.push(how === "delivery" ? "Delivery" : "Collection");
-    lines.push(pay === "transfer" ? "Paying by bank transfer" : "Paying cash");
     lines.push("");
     var name = $("buyerName").value.trim();
     var phone = $("buyerPhone").value.trim();
     var addr = $("buyerAddress").value.trim();
     if (name) { lines.push("Name: " + name); }
-    if (phone) { lines.push("Phone: " + phone); }
+    if (phone) { lines.push("WhatsApp: " + phone); }
     if (how === "delivery" && addr) { lines.push("Address: " + addr); }
     return lines.join("\n");
   }
@@ -1838,7 +1807,6 @@
     var missing = [];
     if (!basket.length) { missing.push("something in your order"); }
     if (!how) { missing.push("collection or delivery"); }
-    if (!pay) { missing.push("how you're paying"); }
     if (!$("buyerName").value.trim()) { missing.push("your name"); }
     if (!$("buyerPhone").value.trim()) { missing.push("your phone number"); }
     if (how === "delivery" && !$("buyerAddress").value.trim()) { missing.push("your delivery address"); }
@@ -1922,15 +1890,6 @@
 
     $("addressField").hidden = how !== "delivery";
 
-    var plate = $("payPlate");
-    if (pay === "transfer" && CATALOG.payQr) {
-      $("payQrImg").src = CATALOG.payQr;
-      $("payAmount").textContent = sum.unknown ? "" : formatMoney(sum.total);
-      plate.hidden = false;
-    } else {
-      plate.hidden = true;
-    }
-
     var text = orderText();
     $("orderSummary").value = text;
 
@@ -1968,11 +1927,6 @@
     if (!how && hows.length === 1) { how = hows[0].key; }
     var count = renderRadios($("howOptions"), "how", hows, how, function (k) { how = k; refreshOrder(); });
     $("howGroup").hidden = count === 0;
-
-    var pays = payChoices();
-    if (!pay && pays.length === 1) { pay = pays[0].key; }
-    var payCount = renderRadios($("payOptions"), "pay", pays, pay, function (k) { pay = k; refreshOrder(); });
-    $("payGroup").hidden = payCount === 0;
 
     refreshOrder();
     showSheet("basketDlg");

@@ -473,18 +473,6 @@
     *, *::before, *::after { transition-duration: 0.001ms !important; }
   }
 
-  /* the payment code needs to be big enough to eyeball, not a thumbnail */
-  #payQrPreview {
-    width: 150px;
-    height: 150px;
-    flex: none;
-    object-fit: contain;
-    background: #FFFFFF;
-    border: 1px solid var(--line);
-    border-radius: var(--r);
-    padding: 6px;
-  }
-
   /* ---------- connection + publishing ---------- */
 
   .conn-state {
@@ -695,23 +683,8 @@
         <span>Delivery note</span>
         <input type="text" id="shopDeliveryNote" placeholder="Within the city, same day" />
       </label>
-      <label class="check"><input type="checkbox" id="optCash" /> <span>Accept cash</span></label>
-      <label class="check"><input type="checkbox" id="optTransfer" /> <span>Accept bank transfer</span></label>
-
-      <div class="field">
-        <span>Payment QR code</span>
-        <div style="display:flex;gap:0.9rem;align-items:flex-start;flex-wrap:wrap;">
-          <img class="preview" id="payQrPreview" alt="" hidden />
-          <div style="flex:1;min-width:220px;display:flex;flex-direction:column;gap:0.5rem;">
-            <label class="btn quiet file-btn" style="align-self:flex-start;">Choose the code image
-              <input type="file" id="payQrFile" accept="image/*" />
-            </label>
-            <p class="hint" id="payQrHint">Buyers scan this to pay you. Crop it to the code itself &mdash;
-              whatever you upload is shown exactly as it is.</p>
-            <button class="btn quiet tiny" type="button" id="payQrClear" style="align-self:flex-start;" hidden>Remove the code</button>
-          </div>
-        </div>
-      </div>
+      <p class="hint">Payment is handled in person &mdash; cash or your QR code at collection
+        or delivery &mdash; so buyers aren't asked to pay on the page.</p>
     </div>
   </section>
 
@@ -891,8 +864,7 @@
     c.currency = c.currency || "VND";
     c.orderPhone = c.orderPhone || "";
     c.deliveryNote = c.deliveryNote || "";
-    c.payQr = c.payQr || "";
-    ["collection", "delivery", "payCash", "payTransfer"].forEach(function (k) {
+    ["collection", "delivery"].forEach(function (k) {
       c[k] = c[k] !== false;
     });
     c.categories = Array.isArray(c.categories) && c.categories.length ? c.categories : CATEGORIES.slice();
@@ -959,7 +931,7 @@
     if (reordered) { n++; }
 
     var settingKeys = ["name", "tagline", "contact", "currency", "orderPhone",
-                       "deliveryNote", "collection", "delivery", "payCash", "payTransfer", "payQr"];
+                       "deliveryNote", "collection", "delivery"];
     var settingsChanged = settingKeys.some(function (k) { return draft[k] !== pub[k]; });
     if (settingsChanged) { n++; }
     return n;
@@ -993,10 +965,7 @@
     $("shopDeliveryNote").value = draft.deliveryNote || "";
     $("optCollection").checked = draft.collection !== false;
     $("optDelivery").checked = draft.delivery !== false;
-    $("optCash").checked = draft.payCash !== false;
-    $("optTransfer").checked = draft.payTransfer !== false;
     fillCategoryPicker();
-    showPayQr();
     $("forShop").textContent = draft.name ? " \u2014 " + draft.name : "";
     document.title = draft.name ? draft.name + " admin" : "Stock Admin";
   }
@@ -1330,8 +1299,6 @@
     draft.deliveryNote = $("shopDeliveryNote").value;
     draft.collection = $("optCollection").checked;
     draft.delivery = $("optDelivery").checked;
-    draft.payCash = $("optCash").checked;
-    draft.payTransfer = $("optTransfer").checked;
     $("forShop").textContent = draft.name ? " \u2014 " + draft.name : "";
     persist();
     renderPublishState();
@@ -1340,100 +1307,8 @@
   ["shopName", "shopTagline", "shopContact", "shopOrderPhone", "shopDeliveryNote"].forEach(function (id) {
     $(id).addEventListener("input", readSettings);
   });
-  ["shopCurrency", "optCollection", "optDelivery", "optCash", "optTransfer"].forEach(function (id) {
+  ["shopCurrency", "optCollection", "optDelivery"].forEach(function (id) {
     $(id).addEventListener("change", readSettings);
-  });
-
-  /* the payment code must survive being resized, so keep it lossless and check it still reads */
-  function processPaymentQr(file) {
-    return new Promise(function (resolve, reject) {
-      var url = URL.createObjectURL(file);
-      var img = new Image();
-      img.onload = function () {
-        var max = 900;
-        var w = img.naturalWidth;
-        var h = img.naturalHeight;
-        var scale = Math.min(1, max / Math.max(w, h));
-        w = Math.max(1, Math.round(w * scale));
-        h = Math.max(1, Math.round(h * scale));
-        var c = document.createElement("canvas");
-        c.width = w;
-        c.height = h;
-        var ctx = c.getContext("2d");
-        ctx.fillStyle = "#FFFFFF";
-        ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(img, 0, 0, w, h);
-        URL.revokeObjectURL(url);
-        try {
-          resolve({ dataUri: c.toDataURL("image/png"), canvas: c });
-        } catch (e) {
-          reject(new Error("That image couldn't be processed."));
-        }
-      };
-      img.onerror = function () {
-        URL.revokeObjectURL(url);
-        reject(new Error("This browser can't read that image. Save it as a PNG or JPEG and try again."));
-      };
-      img.src = url;
-    });
-  }
-
-  /* null means "couldn't tell", not "bad" - never block a save on it */
-  function checkQrReadable(canvas) {
-    if (!("BarcodeDetector" in window)) { return Promise.resolve(null); }
-    var attempt = createImageBitmap(canvas)
-      .then(function (bmp) { return new window.BarcodeDetector({ formats: ["qr_code"] }).detect(bmp); })
-      .then(function (found) { return found.length > 0; })
-      .catch(function () { return null; });
-    var giveUp = new Promise(function (resolve) { setTimeout(function () { resolve(null); }, 6000); });
-    return Promise.race([attempt, giveUp]);
-  }
-
-  function showPayQr() {
-    var src = draft._payQrLocal || draft.payQr;
-    var prev = $("payQrPreview");
-    if (src) {
-      prev.src = src;
-      prev.hidden = false;
-      $("payQrClear").hidden = false;
-    } else {
-      prev.hidden = true;
-      prev.removeAttribute("src");
-      $("payQrClear").hidden = true;
-    }
-  }
-
-  $("payQrFile").addEventListener("change", function (e) {
-    var file = e.target.files && e.target.files[0];
-    if (!file) { return; }
-    $("payQrHint").textContent = "Checking the code\u2026";
-    processPaymentQr(file).then(function (made) {
-      return checkQrReadable(made.canvas).then(function (readable) {
-        if (readable === false) {
-          $("payQrHint").textContent =
-            "That image didn't scan as a QR code. Crop it tighter to the code and try again.";
-          return;
-        }
-        draft._payQrLocal = made.dataUri;
-        draft.payQr = made.dataUri;
-        showPayQr();
-        $("payQrHint").textContent = readable
-          ? "Code saved and it scans correctly."
-          : "Code saved. Scan it yourself once to be sure it works.";
-        persist().then(renderPublishState);
-      });
-    }, function (err) {
-      $("payQrHint").textContent = err.message;
-    });
-  });
-
-  $("payQrClear").addEventListener("click", function () {
-    draft.payQr = "";
-    delete draft._payQrLocal;
-    $("payQrFile").value = "";
-    showPayQr();
-    $("payQrHint").textContent = "Removed. Bank transfer won't be offered until you add one.";
-    persist().then(renderPublishState);
   });
 
   /* ---------- GitHub connection ---------- */
@@ -1559,9 +1434,6 @@
       collection: draft.collection !== false,
       delivery: draft.delivery !== false,
       deliveryNote: draft.deliveryNote || "",
-      payCash: draft.payCash !== false,
-      payTransfer: draft.payTransfer !== false,
-      payQr: draft.payQr || "",
       categories: draft.categories || CATEGORIES.slice(),
       items: draft.items.map(function (it) {
         return {
@@ -1599,16 +1471,6 @@
 
     var chain = Promise.resolve();
 
-    if (typeof draft.payQr === "string" && draft.payQr.indexOf("data:") === 0) {
-      chain = chain.then(function () {
-        var comma = draft.payQr.indexOf(",");
-        var base64 = draft.payQr.slice(comma + 1);
-        return putFile("payment-qr.png", base64, "Update payment code").then(function () {
-          draft._payQrLocal = draft.payQr;
-          draft.payQr = "payment-qr.png";
-        });
-      });
-    }
     pendingPhotos.forEach(function (it) {
       chain = chain.then(function () {
         var comma = it.image.indexOf(",");
