@@ -8,9 +8,10 @@
   "collection": true,
   "delivery": true,
   "deliveryNote": "",
-  "payCash": true,
-  "payTransfer": true,
-  "payQr": "",
+  "telegram": {
+    "token": "8817880389:AAGKaGXt2BwgnYUkrclf9GVMVwPge12Owrk",
+    "chatId": ""
+  },
   "categories": [
     "Confectionary",
     "Toiletries",
