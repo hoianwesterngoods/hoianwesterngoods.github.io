@@ -17,5 +17,15 @@
     "Toiletries",
     "Feminine Hygiene"
   ],
-  "items": []
+  "items": [
+    {
+      "id": "imsng101hy7cx2",
+      "name": "Haribo",
+      "price": "50k",
+      "qty": 5,
+      "note": "",
+      "category": "Confectionary",
+      "image": "images/imsng101hy7cx2.jpg"
+    }
+  ]
 }
