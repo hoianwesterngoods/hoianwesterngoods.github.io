@@ -14,8 +14,6 @@
     button { background: none; border: 0; }
     body { min-height: 100dvh; }
 </style>
-</head>
-<body>
 <style>
   :root {
     --paper:   #F3F4F2;
@@ -483,14 +481,308 @@
       transition-duration: 0.001ms !important;
     }
   }
-</style>
+  /* ---------- stock line on a card ---------- */
 
+  .card-stock {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card-stock.low { color: var(--warn); }
+
+  /* ---------- basket button ---------- */
+
+  .basket-btn { position: relative; }
+
+  .pip {
+    position: absolute;
+    top: -7px;
+    inset-inline-end: -7px;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    border-radius: 100px;
+    background: var(--accent);
+    color: var(--on-accent);
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 19px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- quantity stepper ---------- */
+
+  .qty-row {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+  }
+
+  .stepper {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    overflow: hidden;
+    background: var(--surface);
+  }
+
+  .stepper button {
+    font-family: var(--sans);
+    font-size: 1.15rem;
+    line-height: 1;
+    width: 42px;
+    height: 42px;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .stepper button:hover:not([disabled]) { background: var(--sunk); }
+  .stepper button[disabled] { opacity: 0.3; cursor: default; }
+
+  .stepper .count {
+    min-width: 48px;
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    border-inline: 1px solid var(--line);
+    padding: 0.35rem 0.3rem;
+  }
+
+  /* ---------- basket lines ---------- */
+
+  .lines { display: flex; flex-direction: column; gap: 0.7rem; }
+
+  .line {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) auto;
+    gap: 0.8rem;
+    align-items: center;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 0.55rem;
+    background: var(--surface);
+  }
+
+  .line img {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    border-radius: 3px;
+    border: 1px solid var(--line);
+    background: var(--sunk);
+  }
+
+  .line-name {
+    display: block;
+    font-family: var(--serif);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  .line-sub {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .line-side { display: flex; align-items: center; gap: 0.5rem; }
+
+  .line .stepper button { width: 34px; height: 34px; font-size: 1rem; }
+  .line .stepper .count { min-width: 38px; font-size: 0.9rem; }
+
+  .drop {
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding: 0.3rem;
+  }
+
+  .drop:hover { color: var(--ink); }
+
+  @media (max-width: 560px) {
+    .line { grid-template-columns: 44px minmax(0, 1fr); grid-template-areas: "pic meta" "side side"; row-gap: 0.6rem; }
+    .line img { grid-area: pic; width: 44px; height: 44px; }
+    .line > div:not(.line-side) { grid-area: meta; }
+    .line-side { grid-area: side; justify-content: space-between; width: 100%; }
+  }
+
+  /* ---------- totals ---------- */
+
+  .total-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border-top: 1px solid var(--line);
+    padding-top: 0.9rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .total-row .label { font-size: 0.95rem; color: var(--muted); }
+
+  .total-row .amount {
+    font-family: var(--serif);
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  /* ---------- choices ---------- */
+
+  fieldset.choices { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+
+  fieldset.choices > legend {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 0 0 0.45rem;
+  }
+
+  .options { display: grid; gap: 0.5rem; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 460px) { .options { grid-template-columns: 1fr; } }
+
+  .option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 0.7rem 0.8rem;
+    cursor: pointer;
+    background: var(--surface);
+    transition: border-color 0.15s ease;
+  }
+
+  .option:hover { border-color: var(--muted); }
+  .option:has(input:checked) { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+  .option input { margin-top: 0.25rem; accent-color: var(--accent); flex: none; }
+  .option b { display: block; font-weight: 600; font-size: 0.95rem; }
+  .option small { color: var(--muted); font-size: 0.8rem; }
+
+  /* ---------- buyer details ---------- */
+
+  .details-grid { display: grid; gap: 0.75rem; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 520px) { .details-grid { grid-template-columns: 1fr; } }
+  .details-grid .wide { grid-column: 1 / -1; }
+
+  .field { display: flex; flex-direction: column; gap: 0.3rem; }
+
+  .field > span {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .field input, .field textarea {
+    font-family: var(--sans);
+    font-size: 1rem;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 0.6rem;
+    width: 100%;
+  }
+
+  .field textarea { resize: vertical; min-height: 3.4rem; line-height: 1.5; }
+
+  /* ---------- payment ---------- */
+
+  .pay-plate {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.7rem;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    background: var(--surface);
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .pay-plate img {
+    width: min(260px, 68vw);
+    background: #FFFFFF;
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 0.5rem;
+  }
+
+  .pay-amount {
+    font-family: var(--serif);
+    font-size: 1.3rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- order summary ---------- */
+
+  .summary {
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    background: var(--sunk);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    padding: 0.75rem;
+    width: 100%;
+    min-height: 9rem;
+    resize: vertical;
+    color: var(--ink);
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .note {
+    font-size: 0.84rem;
+    color: var(--muted);
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .warn-note { color: var(--warn); }
+
+  .sheet-foot {
+    position: sticky;
+    bottom: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding: 0.85rem 1.1rem;
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .btn.wide { flex: 1; min-width: 150px; text-align: center; }
+</style>
+</head>
+<body>
 <header class="masthead">
   <div class="wrap masthead-inner">
     <h1 class="wordmark" id="shopName">For Sale</h1>
     <div class="masthead-side">
       <a class="contact-inline" id="contactTop" hidden></a>
       <button class="btn quiet" id="shareBtn" type="button">Share</button>
+      <button class="btn basket-btn" id="basketBtn" type="button">
+        Basket<span class="pip" id="basketPip" hidden>0</span>
+      </button>
     </div>
   </div>
 </header>
@@ -501,11 +793,7 @@
 
 <main class="wrap">
   <div class="toolbar" id="toolbar" hidden>
-    <div class="filters" id="filters" role="group" aria-label="Filter items">
-      <button class="chip" type="button" data-filter="all" aria-pressed="true">All</button>
-      <button class="chip" type="button" data-filter="available" aria-pressed="false">Available</button>
-      <button class="chip" type="button" data-filter="out" aria-pressed="false">Sold out</button>
-    </div>
+    <div class="filters" id="filters" role="group" aria-label="Filter by category"></div>
     <span class="tally" id="tally"></span>
   </div>
 
@@ -530,6 +818,71 @@
     <button class="btn quiet" type="button" data-close="detailDlg">Close</button>
   </div>
   <div class="sheet-body" id="detailBody"></div>
+</dialog>
+
+<dialog id="basketDlg" aria-label="Your order">
+  <div class="sheet-head">
+    <h2 class="sheet-title">Your order</h2>
+    <button class="btn quiet" type="button" data-close="basketDlg">Close</button>
+  </div>
+
+  <div class="sheet-body">
+    <div class="lines" id="basketLines"></div>
+    <p class="note" id="basketEmpty" hidden>Nothing in your order yet. Pick something from the shop.</p>
+
+    <div class="total-row" id="totalRow" hidden>
+      <span class="label">Total</span>
+      <span class="amount" id="totalAmount"></span>
+    </div>
+    <p class="note" id="totalCaveat" hidden></p>
+
+    <fieldset class="choices" id="howGroup">
+      <legend>How do you want it?</legend>
+      <div class="options" id="howOptions"></div>
+    </fieldset>
+
+    <fieldset class="choices">
+      <legend>Your details</legend>
+      <div class="details-grid">
+        <label class="field">
+          <span>Name</span>
+          <input type="text" id="buyerName" autocomplete="name" />
+        </label>
+        <label class="field">
+          <span>Phone</span>
+          <input type="tel" id="buyerPhone" autocomplete="tel" />
+        </label>
+        <label class="field wide" id="addressField">
+          <span>Delivery address</span>
+          <textarea id="buyerAddress" autocomplete="street-address"></textarea>
+        </label>
+      </div>
+    </fieldset>
+
+    <fieldset class="choices" id="payGroup">
+      <legend>How do you want to pay?</legend>
+      <div class="options" id="payOptions"></div>
+    </fieldset>
+
+    <div class="pay-plate" id="payPlate" hidden>
+      <p class="note">Scan this with your banking app</p>
+      <img id="payQrImg" alt="Payment QR code" />
+      <span class="pay-amount" id="payAmount"></span>
+      <p class="note">Send the payment, then send your order below so the seller knows it's coming.</p>
+    </div>
+
+    <fieldset class="choices">
+      <legend>Your order</legend>
+      <textarea class="summary" id="orderSummary" readonly></textarea>
+      <p class="note" id="sendHint"></p>
+      <p class="note warn-note" id="orderProblem" hidden></p>
+    </fieldset>
+  </div>
+
+  <div class="sheet-foot">
+    <button class="btn quiet" type="button" id="copyOrder">Copy order</button>
+    <a class="btn wide" id="sendOrder" target="_blank" rel="noopener">Send order</a>
+  </div>
 </dialog>
 
 <dialog id="shareDlg" aria-label="Share this page">
@@ -985,18 +1338,12 @@
 (function () {
   "use strict";
 
-  /* ===== catalog =====
-     Loaded from catalog.json beside this page; the admin page rewrites that file. */
-  var CATALOG = { version: 2, name: "For Sale", tagline: "", contact: "", items: [] };
-
-  /* phones are the main way this page gets opened, so make sure the
-     layout viewport is set even if the host page didn't declare one */
-  if (!document.querySelector('meta[name="viewport"]')) {
-    var vp = document.createElement("meta");
-    vp.name = "viewport";
-    vp.content = "width=device-width, initial-scale=1";
-    document.head.appendChild(vp);
-  }
+  /* Loaded from catalog.json beside this page; the admin page rewrites that file. */
+  var CATALOG = {
+    version: 3, name: "For Sale", tagline: "", contact: "", currency: "VND",
+    orderPhone: "", collection: true, delivery: true, deliveryNote: "",
+    payCash: true, payTransfer: true, payQr: "", categories: [], items: []
+  };
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -1006,27 +1353,57 @@
     dlg.scrollTop = 0;
   }
 
+  /* ---------- money ---------- */
+
+  var CURRENCIES = {
+    VND: { suffix: " \u20AB", decimals: 0 },
+    USD: { prefix: "$", decimals: 2 },
+    GBP: { prefix: "\u00A3", decimals: 2 },
+    EUR: { prefix: "\u20AC", decimals: 2 },
+    AUD: { prefix: "A$", decimals: 2 }
+  };
+
+  function currency() { return CURRENCIES[CATALOG.currency] || CURRENCIES.VND; }
+
+  /* accepts 500000, "500,000", "500k", "1.5m" */
+  function parseAmount(raw) {
+    var s = String(raw == null ? "" : raw).trim().toLowerCase();
+    s = s.replace(/[,\s\u20AB\u00A3\u20AC$]/g, "").replace(/vnd|usd|gbp|eur|aud|d\u0111|\u0111/g, "");
+    var m = s.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
+    if (!m) { return null; }
+    var n = parseFloat(m[1]);
+    if (m[2] === "k") { n *= 1000; }
+    if (m[2] === "m") { n *= 1000000; }
+    return n;
+  }
+
+  function formatMoney(n) {
+    var c = currency();
+    var body = n.toLocaleString("en-US", {
+      minimumFractionDigits: c.decimals && Math.round(n * 100) % 100 !== 0 ? c.decimals : 0,
+      maximumFractionDigits: c.decimals
+    });
+    return (c.prefix || "") + body + (c.suffix || "");
+  }
+
+  /* what to show on a card: a real amount if we can read one, else the text as typed */
+  function displayPrice(raw) {
+    var n = parseAmount(raw);
+    if (n === null) { return String(raw == null ? "" : raw).trim(); }
+    return formatMoney(n);
+  }
+
   /* ---------- catalog helpers ---------- */
 
-  /* older catalogs used a sold flag; stock counts replaced it */
   function stockOf(it) {
     if (typeof it.qty === "number") { return Math.max(0, Math.floor(it.qty)); }
     return it.sold ? 0 : 1;
   }
 
-  function formatPrice(raw) {
-    var s = String(raw == null ? "" : raw).trim();
-    if (!s) { return ""; }
-    var bare = s.replace(/[$,\s]/g, "");
-    if (/^\d+(\.\d+)?$/.test(bare)) {
-      var n = parseFloat(bare);
-      var whole = Math.round(n * 100) % 100 === 0;
-      return "$" + n.toLocaleString("en-US", {
-        minimumFractionDigits: whole ? 0 : 2,
-        maximumFractionDigits: 2
-      });
-    }
-    return s;
+  function itemById(id) {
+    var found = null;
+    (CATALOG.items || []).forEach(function (it) { if (it.id === id) { found = it; } });
+    return found;
   }
 
   function stockLabel(n) {
@@ -1035,7 +1412,6 @@
     return n + " available";
   }
 
-  /* turn a contact line into a tappable link where we can be confident */
   function contactLink(raw) {
     var s = String(raw || "").trim();
     if (!s) { return null; }
@@ -1046,15 +1422,125 @@
     return null;
   }
 
-  /* ---------- render ---------- */
+  /* ---------- basket ---------- */
+
+  var basket = [];   /* [{id, qty}] */
+
+  function loadBasket() {
+    try {
+      var raw = sessionStorage.getItem("shop-basket");
+      if (raw) { basket = JSON.parse(raw) || []; }
+    } catch (e) { basket = []; }
+    /* drop anything that has since sold out or vanished */
+    basket = basket.filter(function (line) {
+      var it = itemById(line.id);
+      if (!it) { return false; }
+      line.qty = Math.min(Math.max(1, line.qty | 0), stockOf(it));
+      return line.qty > 0;
+    });
+  }
+
+  function saveBasket() {
+    try { sessionStorage.setItem("shop-basket", JSON.stringify(basket)); }
+    catch (e) { /* private browsing; the basket just won't survive a refresh */ }
+  }
+
+  function basketCount() {
+    var n = 0;
+    basket.forEach(function (l) { n += l.qty; });
+    return n;
+  }
+
+  function inBasket(id) {
+    var line = null;
+    basket.forEach(function (l) { if (l.id === id) { line = l; } });
+    return line;
+  }
+
+  function addToBasket(id, qty) {
+    var it = itemById(id);
+    if (!it) { return; }
+    var max = stockOf(it);
+    var line = inBasket(id);
+    if (line) { line.qty = Math.min(max, line.qty + qty); }
+    else { basket.push({ id: id, qty: Math.min(max, qty) }); }
+    saveBasket();
+    renderBasketPip();
+  }
+
+  function setLineQty(id, qty) {
+    var it = itemById(id);
+    var max = it ? stockOf(it) : 0;
+    basket = basket.map(function (l) {
+      return l.id === id ? { id: id, qty: Math.min(max, Math.max(1, qty)) } : l;
+    });
+    saveBasket();
+  }
+
+  function removeLine(id) {
+    basket = basket.filter(function (l) { return l.id !== id; });
+    saveBasket();
+  }
+
+  function renderBasketPip() {
+    var n = basketCount();
+    $("basketPip").hidden = n === 0;
+    $("basketPip").textContent = n;
+  }
+
+  /* ---------- storefront ---------- */
 
   var filter = "all";
 
+  function categoriesInUse() {
+    var declared = CATALOG.categories || [];
+    var used = [];
+    declared.forEach(function (cat) {
+      var has = (CATALOG.items || []).some(function (it) { return it.category === cat; });
+      if (has) { used.push(cat); }
+    });
+    var loose = (CATALOG.items || []).some(function (it) {
+      return !it.category || declared.indexOf(it.category) === -1;
+    });
+    return { used: used, loose: loose };
+  }
+
   function visibleItems() {
     var items = CATALOG.items || [];
-    if (filter === "available") { return items.filter(function (it) { return stockOf(it) > 0; }); }
-    if (filter === "out") { return items.filter(function (it) { return stockOf(it) === 0; }); }
-    return items;
+    if (filter === "all") { return items; }
+    if (filter === "__other") {
+      var declared = CATALOG.categories || [];
+      return items.filter(function (it) { return !it.category || declared.indexOf(it.category) === -1; });
+    }
+    return items.filter(function (it) { return it.category === filter; });
+  }
+
+  function renderFilters() {
+    var box = $("filters");
+    box.textContent = "";
+    var info = categoriesInUse();
+    var tabs = [];
+    if (info.used.length) {
+      tabs.push({ key: "all", label: "All" });
+      info.used.forEach(function (cat) { tabs.push({ key: cat, label: cat }); });
+      if (info.loose) { tabs.push({ key: "__other", label: "Other" }); }
+    }
+    box.hidden = tabs.length < 2;
+    if (box.hidden) { filter = "all"; return; }
+
+    tabs.forEach(function (tab) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = tab.label;
+      b.setAttribute("aria-pressed", String(tab.key === filter));
+      b.addEventListener("click", function () {
+        filter = tab.key;
+        renderFilters();
+        renderGrid();
+      });
+      box.appendChild(b);
+    });
   }
 
   function renderShop() {
@@ -1084,19 +1570,14 @@
     }
 
     var items = CATALOG.items || [];
-    var out = items.filter(function (it) { return stockOf(it) === 0; }).length;
-    var live = items.length - out;
-
+    var live = items.filter(function (it) { return stockOf(it) > 0; }).length;
     $("toolbar").hidden = items.length === 0;
-    $("filters").hidden = out === 0;
-    $("tally").textContent = items.length
-      ? live + (live === 1 ? " item" : " items") + " available"
-      : "";
-    $("footTally").textContent = items.length
-      ? items.length + (items.length === 1 ? " listing" : " listings")
-      : "";
+    $("tally").textContent = items.length ? live + (live === 1 ? " item" : " items") + " available" : "";
+    $("footTally").textContent = items.length ? items.length + (items.length === 1 ? " listing" : " listings") : "";
 
+    renderFilters();
     renderGrid();
+    renderBasketPip();
   }
 
   function renderGrid() {
@@ -1122,23 +1603,31 @@
         img.loading = i < 6 ? "eager" : "lazy";
         shot.appendChild(img);
       }
-      if (n === 0 || n === 1) {
+      if (n === 0) {
         var flag = document.createElement("span");
-        flag.className = "flag" + (n === 1 ? " low" : "");
-        flag.textContent = n === 0 ? "Sold out" : "Last one";
+        flag.className = "flag";
+        flag.textContent = "Sold out";
         shot.appendChild(flag);
       }
 
       var body = document.createElement("div");
       body.className = "card-body";
+
       var nm = document.createElement("span");
       nm.className = "card-name";
       nm.textContent = it.name || "Untitled";
+
       var pr = document.createElement("span");
       pr.className = "card-price";
-      pr.textContent = formatPrice(it.price);
+      pr.textContent = displayPrice(it.price);
+
+      var st = document.createElement("span");
+      st.className = "card-stock" + (n > 0 && n <= 2 ? " low" : "");
+      st.textContent = stockLabel(n);
+
       body.appendChild(nm);
       body.appendChild(pr);
+      body.appendChild(st);
 
       card.appendChild(shot);
       card.appendChild(body);
@@ -1146,6 +1635,37 @@
       li.appendChild(card);
       grid.appendChild(li);
     });
+  }
+
+  /* ---------- item sheet ---------- */
+
+  function makeStepper(value, max, onChange) {
+    var wrap = document.createElement("div");
+    wrap.className = "stepper";
+    var minus = document.createElement("button");
+    minus.type = "button";
+    minus.textContent = "\u2212";
+    minus.setAttribute("aria-label", "One fewer");
+    var count = document.createElement("span");
+    count.className = "count";
+    var plus = document.createElement("button");
+    plus.type = "button";
+    plus.textContent = "+";
+    plus.setAttribute("aria-label", "One more");
+
+    function paint() {
+      count.textContent = value;
+      minus.disabled = value <= 1;
+      plus.disabled = value >= max;
+    }
+    minus.addEventListener("click", function () { if (value > 1) { value--; paint(); onChange(value); } });
+    plus.addEventListener("click", function () { if (value < max) { value++; paint(); onChange(value); } });
+
+    wrap.appendChild(minus);
+    wrap.appendChild(count);
+    wrap.appendChild(plus);
+    paint();
+    return wrap;
   }
 
   function openDetail(it) {
@@ -1171,13 +1691,20 @@
 
     var p = document.createElement("span");
     p.className = "detail-price";
-    p.textContent = formatPrice(it.price);
+    p.textContent = displayPrice(it.price);
     head.appendChild(p);
 
     var s = document.createElement("span");
-    s.className = "detail-stock" + (n === 1 ? " low" : "");
+    s.className = "detail-stock" + (n > 0 && n <= 2 ? " low" : "");
     s.textContent = stockLabel(n);
     head.appendChild(s);
+
+    if (it.category) {
+      var cat = document.createElement("span");
+      cat.className = "detail-stock";
+      cat.textContent = it.category;
+      head.appendChild(cat);
+    }
     body.appendChild(head);
 
     if (it.note) {
@@ -1187,46 +1714,291 @@
       body.appendChild(note);
     }
 
-    if (CATALOG.contact && n > 0) {
-      var buy = document.createElement("div");
-      buy.className = "buy";
-      var lab = document.createElement("span");
-      lab.className = "label";
-      lab.textContent = "To buy this item:";
-      buy.appendChild(lab);
-      var link = contactLink(CATALOG.contact);
-      if (link) {
-        var a = document.createElement("a");
-        a.className = "btn";
-        a.href = link.href;
-        a.textContent = link.text;
-        buy.appendChild(a);
+    if (n > 0) {
+      var already = inBasket(it.id);
+      var room = n - (already ? already.qty : 0);
+      var row = document.createElement("div");
+      row.className = "qty-row";
+
+      if (room > 0) {
+        var chosen = 1;
+        row.appendChild(makeStepper(1, room, function (v) { chosen = v; }));
+        var add = document.createElement("button");
+        add.type = "button";
+        add.className = "btn";
+        add.textContent = "Add to order";
+        add.addEventListener("click", function () {
+          addToBasket(it.id, chosen);
+          $("detailDlg").close();
+          openBasket();
+        });
+        row.appendChild(add);
       } else {
-        var span = document.createElement("span");
-        span.textContent = CATALOG.contact;
-        buy.appendChild(span);
+        var full = document.createElement("p");
+        full.className = "note";
+        full.textContent = "All " + n + " of these are already in your order.";
+        row.appendChild(full);
       }
-      body.appendChild(buy);
+      body.appendChild(row);
+
+      if (already) {
+        var have = document.createElement("p");
+        have.className = "note";
+        have.textContent = already.qty + " in your order already.";
+        body.appendChild(have);
+      }
     }
 
     showSheet("detailDlg");
   }
 
-  /* ---------- filters ---------- */
+  /* ---------- order sheet ---------- */
 
-  Array.prototype.forEach.call($("filters").querySelectorAll(".chip"), function (chip) {
-    chip.addEventListener("click", function () {
-      filter = chip.getAttribute("data-filter");
-      Array.prototype.forEach.call($("filters").querySelectorAll(".chip"), function (c) {
-        c.setAttribute("aria-pressed", String(c === chip));
-      });
-      renderGrid();
+  function howChoices() {
+    var out = [];
+    if (CATALOG.collection !== false) { out.push({ key: "collection", label: "Collection", sub: "Pick it up yourself" }); }
+    if (CATALOG.delivery !== false) { out.push({ key: "delivery", label: "Delivery", sub: CATALOG.deliveryNote || "Brought to your address" }); }
+    return out;
+  }
+
+  function payChoices() {
+    var out = [];
+    if (CATALOG.payCash !== false) { out.push({ key: "cash", label: "Cash", sub: "Pay when you get it" }); }
+    if (CATALOG.payTransfer !== false && CATALOG.payQr) { out.push({ key: "transfer", label: "Bank transfer", sub: "Scan a QR code to pay now" }); }
+    return out;
+  }
+
+  function renderRadios(box, name, choices, current, onPick) {
+    box.textContent = "";
+    choices.forEach(function (choice) {
+      var label = document.createElement("label");
+      label.className = "option";
+      var input = document.createElement("input");
+      input.type = "radio";
+      input.name = name;
+      input.value = choice.key;
+      input.checked = choice.key === current;
+      input.addEventListener("change", function () { onPick(choice.key); });
+      var text = document.createElement("span");
+      var b = document.createElement("b");
+      b.textContent = choice.label;
+      var small = document.createElement("small");
+      small.textContent = choice.sub;
+      text.appendChild(b);
+      text.appendChild(small);
+      label.appendChild(input);
+      label.appendChild(text);
+      box.appendChild(label);
     });
+    return choices.length;
+  }
+
+  var how = "";
+  var pay = "";
+
+  function basketTotal() {
+    var total = 0;
+    var unknown = false;
+    basket.forEach(function (line) {
+      var it = itemById(line.id);
+      var each = it ? parseAmount(it.price) : null;
+      if (each === null) { unknown = true; } else { total += each * line.qty; }
+    });
+    return { total: total, unknown: unknown };
+  }
+
+  function orderText() {
+    var lines = [];
+    lines.push("ORDER");
+    lines.push("");
+    basket.forEach(function (line) {
+      var it = itemById(line.id);
+      if (!it) { return; }
+      var each = parseAmount(it.price);
+      var money = each === null ? String(it.price || "") : formatMoney(each * line.qty);
+      lines.push(line.qty + " x " + (it.name || "Item") + "  -  " + money);
+    });
+    var sum = basketTotal();
+    lines.push("");
+    lines.push("Total: " + formatMoney(sum.total) + (sum.unknown ? " (plus items with no set price)" : ""));
+    lines.push("");
+    lines.push(how === "delivery" ? "Delivery" : "Collection");
+    lines.push(pay === "transfer" ? "Paying by bank transfer" : "Paying cash");
+    lines.push("");
+    var name = $("buyerName").value.trim();
+    var phone = $("buyerPhone").value.trim();
+    var addr = $("buyerAddress").value.trim();
+    if (name) { lines.push("Name: " + name); }
+    if (phone) { lines.push("Phone: " + phone); }
+    if (how === "delivery" && addr) { lines.push("Address: " + addr); }
+    return lines.join("\n");
+  }
+
+  function missingBits() {
+    var missing = [];
+    if (!basket.length) { missing.push("something in your order"); }
+    if (!how) { missing.push("collection or delivery"); }
+    if (!pay) { missing.push("how you're paying"); }
+    if (!$("buyerName").value.trim()) { missing.push("your name"); }
+    if (!$("buyerPhone").value.trim()) { missing.push("your phone number"); }
+    if (how === "delivery" && !$("buyerAddress").value.trim()) { missing.push("your delivery address"); }
+    return missing;
+  }
+
+  function sendHref(text) {
+    var digits = String(CATALOG.orderPhone || "").replace(/[^\d]/g, "");
+    if (digits) { return "https://wa.me/" + digits + "?text=" + encodeURIComponent(text); }
+    var link = contactLink(CATALOG.contact);
+    if (link && link.href.indexOf("mailto:") === 0) {
+      return link.href + "?subject=" + encodeURIComponent("Order") + "&body=" + encodeURIComponent(text);
+    }
+    if (link && link.href.indexOf("tel:") === 0) {
+      return "sms:" + link.href.slice(4) + "?body=" + encodeURIComponent(text);
+    }
+    return "";
+  }
+
+  function renderBasket() {
+    var box = $("basketLines");
+    box.textContent = "";
+    $("basketEmpty").hidden = basket.length > 0;
+
+    basket.forEach(function (line) {
+      var it = itemById(line.id);
+      if (!it) { return; }
+      var max = stockOf(it);
+      var row = document.createElement("div");
+      row.className = "line";
+
+      var img = document.createElement("img");
+      img.alt = "";
+      if (it.image) { img.src = it.image; }
+      row.appendChild(img);
+
+      var meta = document.createElement("div");
+      var nm = document.createElement("span");
+      nm.className = "line-name";
+      nm.textContent = it.name || "Item";
+      var sub = document.createElement("span");
+      sub.className = "line-sub";
+      var each = parseAmount(it.price);
+      sub.textContent = (each === null ? String(it.price || "no price set") : formatMoney(each)) + " each";
+      meta.appendChild(nm);
+      meta.appendChild(sub);
+      row.appendChild(meta);
+
+      var side = document.createElement("div");
+      side.className = "line-side";
+      side.appendChild(makeStepper(line.qty, max, function (v) {
+        setLineQty(line.id, v);
+        refreshOrder();
+        renderBasketPip();
+      }));
+      var drop = document.createElement("button");
+      drop.type = "button";
+      drop.className = "drop";
+      drop.textContent = "Remove";
+      drop.addEventListener("click", function () {
+        removeLine(line.id);
+        renderBasket();
+        refreshOrder();
+        renderBasketPip();
+      });
+      side.appendChild(drop);
+      row.appendChild(side);
+
+      box.appendChild(row);
+    });
+  }
+
+  function refreshOrder() {
+    var sum = basketTotal();
+    $("totalRow").hidden = basket.length === 0;
+    $("totalAmount").textContent = formatMoney(sum.total);
+    $("totalCaveat").hidden = !sum.unknown;
+    $("totalCaveat").textContent = sum.unknown
+      ? "Some items have no set price, so the seller will confirm the final amount."
+      : "";
+
+    $("addressField").hidden = how !== "delivery";
+
+    var plate = $("payPlate");
+    if (pay === "transfer" && CATALOG.payQr) {
+      $("payQrImg").src = CATALOG.payQr;
+      $("payAmount").textContent = sum.unknown ? "" : formatMoney(sum.total);
+      plate.hidden = false;
+    } else {
+      plate.hidden = true;
+    }
+
+    var text = orderText();
+    $("orderSummary").value = text;
+
+    var missing = missingBits();
+    var problem = $("orderProblem");
+    if (missing.length) {
+      problem.hidden = false;
+      problem.textContent = "Still needed: " + missing.join(", ") + ".";
+    } else {
+      problem.hidden = true;
+    }
+
+    var href = sendHref(text);
+    var send = $("sendOrder");
+    if (href && !missing.length) {
+      send.href = href;
+      send.removeAttribute("aria-disabled");
+      send.style.opacity = "";
+      send.style.pointerEvents = "";
+    } else {
+      send.removeAttribute("href");
+      send.setAttribute("aria-disabled", "true");
+      send.style.opacity = "0.45";
+      send.style.pointerEvents = "none";
+    }
+    $("sendHint").textContent = href
+      ? "Opens your messaging app with the order ready to send."
+      : "Copy the order above and send it to the seller.";
+  }
+
+  function openBasket() {
+    renderBasket();
+
+    var hows = howChoices();
+    if (!how && hows.length === 1) { how = hows[0].key; }
+    var count = renderRadios($("howOptions"), "how", hows, how, function (k) { how = k; refreshOrder(); });
+    $("howGroup").hidden = count === 0;
+
+    var pays = payChoices();
+    if (!pay && pays.length === 1) { pay = pays[0].key; }
+    var payCount = renderRadios($("payOptions"), "pay", pays, pay, function (k) { pay = k; refreshOrder(); });
+    $("payGroup").hidden = payCount === 0;
+
+    refreshOrder();
+    showSheet("basketDlg");
+  }
+
+  $("basketBtn").addEventListener("click", openBasket);
+
+  ["buyerName", "buyerPhone", "buyerAddress"].forEach(function (id) {
+    $(id).addEventListener("input", refreshOrder);
+  });
+
+  $("copyOrder").addEventListener("click", function () {
+    var text = $("orderSummary").value;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        $("sendHint").textContent = "Order copied. Paste it into a message to the seller.";
+      }, function () {
+        $("orderSummary").select();
+      });
+    } else {
+      $("orderSummary").select();
+    }
   });
 
   /* ---------- share ---------- */
 
-  /* draw a QR for whatever address this page is served from */
   var qrCache = {};
   function qrDataUri(text) {
     if (qrCache[text] !== undefined) { return qrCache[text]; }
@@ -1245,15 +2017,11 @@
       ctx.fillStyle = "#000000";
       for (var r = 0; r < q.size; r++) {
         for (var c = 0; c < q.size; c++) {
-          if (q.matrix[r][c]) {
-            ctx.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale);
-          }
+          if (q.matrix[r][c]) { ctx.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale); }
         }
       }
       uri = cv.toDataURL("image/png");
-    } catch (e) {
-      uri = null;
-    }
+    } catch (e) { uri = null; }
     qrCache[text] = uri;
     return uri;
   }
@@ -1321,7 +2089,8 @@
     b.addEventListener("click", function () { $(b.getAttribute("data-close")).close(); });
   });
 
-  /* cache-buster so a freshly published catalog shows up straight away */
+  /* ---------- boot ---------- */
+
   fetch("catalog.json?t=" + Date.now(), { cache: "no-store" })
     .then(function (res) {
       if (!res.ok) { throw new Error("HTTP " + res.status); }
@@ -1329,14 +2098,14 @@
     })
     .then(function (data) {
       if (data && Array.isArray(data.items)) { CATALOG = data; }
+      loadBasket();
       renderShop();
     })
     .catch(function () {
       renderShop();
       $("empty").hidden = false;
       $("empty").querySelector("h2").textContent = "This shop couldn't load";
-      $("empty").querySelector("p").textContent =
-        "Check back in a minute \u2014 it may still be updating.";
+      $("empty").querySelector("p").textContent = "Check back in a minute \u2014 it may still be updating.";
     });
 })();
 </script>
