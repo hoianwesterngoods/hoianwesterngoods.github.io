@@ -689,6 +689,42 @@
   </section>
 
   <section class="panel">
+    <h2>Order notifications</h2>
+    <p class="sub">Get a Telegram message the moment someone places an order.</p>
+    <div class="col">
+      <label class="field">
+        <span>Bot token</span>
+        <input type="text" id="tgToken" placeholder="1234567890:AA..." autocomplete="off" spellcheck="false" />
+      </label>
+      <div class="form-actions">
+        <button class="btn quiet" type="button" id="tgFind">Find my chat</button>
+        <button class="btn quiet" type="button" id="tgTest">Send a test message</button>
+        <span class="status" id="tgStatus"></span>
+      </div>
+      <label class="field">
+        <span>Chat ID</span>
+        <input type="text" id="tgChat" placeholder="Press Find my chat after messaging your bot" />
+      </label>
+      <p class="notice" style="margin-top:0.4rem;">
+        <strong>This token goes into the public page.</strong> That is what lets the shop message you
+        without the buyer doing anything, but anyone who views the page source can read it and send
+        messages through your bot. It cannot reach your Telegram account, and you can kill it in
+        BotFather with <code>/revoke</code> at any time. Use a bot made only for this shop.
+      </p>
+      <details class="help">
+        <summary>How do I make a bot?</summary>
+        <ol class="setup-steps">
+          <li>In Telegram, search for <strong>@BotFather</strong> and open it.</li>
+          <li>Send <code>/newbot</code>, then give it a name and a username ending in <code>bot</code>.</li>
+          <li>It replies with a token like <code>1234567890:AA...</code> &mdash; paste that above.</li>
+          <li>Open your new bot and press <strong>Start</strong>, so it is allowed to message you.</li>
+          <li>Come back here, press <strong>Find my chat</strong>, then <strong>Send a test message</strong>.</li>
+        </ol>
+      </details>
+    </div>
+  </section>
+
+  <section class="panel">
     <h2>Connection</h2>
     <p class="sub">Where this page publishes to. All of it stays on this device.</p>
     <div class="col">
@@ -864,6 +900,9 @@
     c.currency = c.currency || "VND";
     c.orderPhone = c.orderPhone || "";
     c.deliveryNote = c.deliveryNote || "";
+    c.telegram = (c.telegram && typeof c.telegram === "object")
+      ? { token: c.telegram.token || "", chatId: c.telegram.chatId || "" }
+      : { token: "", chatId: "" };
     ["collection", "delivery"].forEach(function (k) {
       c[k] = c[k] !== false;
     });
@@ -933,6 +972,7 @@
     var settingKeys = ["name", "tagline", "contact", "currency", "orderPhone",
                        "deliveryNote", "collection", "delivery"];
     var settingsChanged = settingKeys.some(function (k) { return draft[k] !== pub[k]; });
+    if (JSON.stringify(draft.telegram || {}) !== JSON.stringify(pub.telegram || {})) { settingsChanged = true; }
     if (settingsChanged) { n++; }
     return n;
   }
@@ -965,6 +1005,8 @@
     $("shopDeliveryNote").value = draft.deliveryNote || "";
     $("optCollection").checked = draft.collection !== false;
     $("optDelivery").checked = draft.delivery !== false;
+    $("tgToken").value = (draft.telegram && draft.telegram.token) || "";
+    $("tgChat").value = (draft.telegram && draft.telegram.chatId) || "";
     fillCategoryPicker();
     $("forShop").textContent = draft.name ? " \u2014 " + draft.name : "";
     document.title = draft.name ? draft.name + " admin" : "Stock Admin";
@@ -1311,6 +1353,75 @@
     $(id).addEventListener("change", readSettings);
   });
 
+  /* ---------- Telegram notifications ---------- */
+
+  function tgApi(method, params) {
+    var token = ($("tgToken").value || "").trim();
+    if (!token) { return Promise.reject(new Error("Paste the bot token first.")); }
+    return fetch("https://api.telegram.org/bot" + token + "/" + method, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params || {})
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (body) {
+        if (!body || body.ok !== true) {
+          throw new Error((body && body.description) || "Telegram refused that.");
+        }
+        return body.result;
+      });
+  }
+
+  function saveTelegram() {
+    draft.telegram = {
+      token: ($("tgToken").value || "").trim(),
+      chatId: ($("tgChat").value || "").trim()
+    };
+    persist();
+    renderPublishState();
+  }
+
+  $("tgFind").addEventListener("click", function () {
+    setStatus($("tgStatus"), "Looking\u2026");
+    tgApi("getUpdates", {}).then(function (updates) {
+      var chat = null;
+      (updates || []).forEach(function (u) {
+        var msg = u.message || u.edited_message || u.channel_post;
+        if (msg && msg.chat && msg.chat.id) { chat = msg.chat; }
+      });
+      if (!chat) {
+        setStatus($("tgStatus"),
+          "No messages yet. Open your bot in Telegram, press Start, then try again.", true);
+        return;
+      }
+      $("tgChat").value = String(chat.id);
+      saveTelegram();
+      setStatus($("tgStatus"), "Found " + (chat.first_name || chat.title || "your chat") + ".");
+    }, function (err) {
+      setStatus($("tgStatus"), err.message, true);
+    });
+  });
+
+  $("tgTest").addEventListener("click", function () {
+    var chatId = ($("tgChat").value || "").trim();
+    if (!chatId) {
+      setStatus($("tgStatus"), "Find your chat first.", true);
+      return;
+    }
+    setStatus($("tgStatus"), "Sending\u2026");
+    tgApi("sendMessage", { chat_id: chatId, text: "Test from your shop. Orders will arrive here." })
+      .then(function () {
+        saveTelegram();
+        setStatus($("tgStatus"), "Sent. Check Telegram.");
+      }, function (err) {
+        setStatus($("tgStatus"), err.message, true);
+      });
+  });
+
+  ["tgToken", "tgChat"].forEach(function (id) {
+    $(id).addEventListener("input", saveTelegram);
+  });
+
   /* ---------- GitHub connection ---------- */
 
   var CATEGORIES = ["Confectionary", "Toiletries", "Feminine Hygiene"];
@@ -1434,6 +1545,10 @@
       collection: draft.collection !== false,
       delivery: draft.delivery !== false,
       deliveryNote: draft.deliveryNote || "",
+      telegram: {
+        token: (draft.telegram && draft.telegram.token) || "",
+        chatId: (draft.telegram && draft.telegram.chatId) || ""
+      },
       categories: draft.categories || CATEGORIES.slice(),
       items: draft.items.map(function (it) {
         return {

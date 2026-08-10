@@ -761,6 +761,25 @@
     font-weight: 600;
     margin: 0;
   }
+
+  /* ---------- order placed ---------- */
+
+  .placed {
+    border: 1px solid var(--accent);
+    border-radius: var(--r);
+    background: var(--surface);
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .placed h3 {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    margin: 0;
+  }
 </style>
 </head>
 <body>
@@ -855,11 +874,16 @@
       <p class="note" id="sendHint"></p>
       <p class="note warn-note" id="orderProblem" hidden></p>
     </fieldset>
+
+    <div class="placed" id="placed" hidden>
+      <h3 id="placedTitle">Order placed</h3>
+      <p class="note" id="placedNote"></p>
+    </div>
   </div>
 
   <div class="sheet-foot">
     <button class="btn quiet" type="button" id="copyOrder">Copy order</button>
-    <a class="btn wide" id="sendOrder" target="_blank" rel="noopener">Send order</a>
+    <button class="btn wide" type="button" id="sendOrder">Send order</button>
   </div>
 </dialog>
 
@@ -1320,7 +1344,8 @@
   var CATALOG = {
     version: 3, name: "For Sale", tagline: "", contact: "", currency: "VND",
     orderPhone: "", collection: true, delivery: true, deliveryNote: "",
-    categories: [], items: []
+    categories: [], items: [],
+    telegram: { token: "", chatId: "" }
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -1904,23 +1929,22 @@
 
     var href = sendHref(text);
     var send = $("sendOrder");
-    if (href && !missing.length) {
-      send.href = href;
-      send.removeAttribute("aria-disabled");
-      send.style.opacity = "";
-      send.style.pointerEvents = "";
+    var ready = !missing.length && basket.length > 0;
+    send.disabled = !ready || (!telegramOn() && !href);
+    send.style.opacity = send.disabled ? "0.45" : "";
+
+    if (telegramOn()) {
+      $("sendHint").textContent = "This sends your order straight to the seller.";
+    } else if (href) {
+      $("sendHint").textContent = "Opens your messaging app with the order ready to send.";
     } else {
-      send.removeAttribute("href");
-      send.setAttribute("aria-disabled", "true");
-      send.style.opacity = "0.45";
-      send.style.pointerEvents = "none";
+      $("sendHint").textContent = "Copy the order above and send it to the seller.";
     }
-    $("sendHint").textContent = href
-      ? "Opens your messaging app with the order ready to send."
-      : "Copy the order above and send it to the seller.";
   }
 
   function openBasket() {
+    $("placed").hidden = true;
+    $("sendOrder").textContent = "Send order";
     renderBasket();
 
     var hows = howChoices();
@@ -1936,6 +1960,65 @@
 
   ["buyerName", "buyerPhone", "buyerAddress"].forEach(function (id) {
     $(id).addEventListener("input", refreshOrder);
+  });
+
+  function telegramOn() {
+    var t = CATALOG.telegram || {};
+    return !!(t.token && t.chatId);
+  }
+
+  /* the page tells the seller itself, so the buyer needn't have any particular app */
+  function notifySeller(text) {
+    var t = CATALOG.telegram || {};
+    return fetch("https://api.telegram.org/bot" + t.token + "/sendMessage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: t.chatId, text: text, disable_web_page_preview: true })
+    })
+      .then(function (res) { return res.json(); })
+      .then(function (body) {
+        if (!body || body.ok !== true) { throw new Error("Telegram refused the message."); }
+        return true;
+      });
+  }
+
+  function showPlaced(title, note) {
+    $("placedTitle").textContent = title;
+    $("placedNote").textContent = note;
+    $("placed").hidden = false;
+    $("placed").scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+
+  $("sendOrder").addEventListener("click", function () {
+    var text = orderText();
+    var send = $("sendOrder");
+
+    if (!telegramOn()) {
+      var href = sendHref(text);
+      if (href) { window.open(href, "_blank", "noopener"); }
+      return;
+    }
+
+    send.disabled = true;
+    send.textContent = "Sending\u2026";
+    notifySeller(text).then(function () {
+      var phone = $("buyerPhone").value.trim();
+      showPlaced("Order placed",
+        "The seller has your order and will message you on WhatsApp" +
+        (phone ? " at " + phone : "") + ".");
+      send.textContent = "Order sent";
+      send.style.opacity = "0.45";
+      basket = [];
+      saveBasket();
+      renderBasketPip();
+      renderBasket();
+      $("sendHint").textContent = "";
+    }, function () {
+      send.disabled = false;
+      send.textContent = "Send order";
+      showPlaced("That didn't go through",
+        "Copy the order above and send it to the seller directly, or try again in a moment.");
+    });
   });
 
   $("copyOrder").addEventListener("click", function () {
