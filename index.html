@@ -1982,6 +1982,22 @@
       });
   }
 
+  /* url-safe base64 so the whole order survives being a link in a chat message */
+  function packOrder() {
+    var payload = {
+      o: Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4),
+      n: $("buyerName").value.trim().slice(0, 40),
+      l: basket.map(function (line) { return [line.id, line.qty]; })
+    };
+    var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+
+  function stockLink() {
+    var dir = location.origin + location.pathname.replace(/[^/]*$/, "");
+    return dir + "admin.html#order=" + packOrder();
+  }
+
   function showPlaced(title, note) {
     $("placedTitle").textContent = title;
     $("placedNote").textContent = note;
@@ -2001,7 +2017,8 @@
 
     send.disabled = true;
     send.textContent = "Sending\u2026";
-    notifySeller(text).then(function () {
+    /* the stock link rides along with the seller's copy only, never the buyer's */
+    notifySeller(text + "\n\nUpdate stock: " + stockLink()).then(function () {
       var phone = $("buyerPhone").value.trim();
       showPlaced("Order placed",
         "The seller has your order and will message you on WhatsApp" +

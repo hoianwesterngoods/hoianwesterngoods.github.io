@@ -573,6 +573,17 @@
     change you make here publishes to your shop on its own, within about a minute.
   </div>
 
+  <section class="panel" id="incoming" hidden style="border-color:var(--accent);">
+    <h2>Stock update from an order</h2>
+    <p class="sub" id="incomingWho"></p>
+    <ul class="list" id="incomingLines"></ul>
+    <div class="form-actions" style="margin-top:1rem;">
+      <button class="btn" type="button" id="applyOrder">Take these off my stock</button>
+      <button class="btn quiet" type="button" id="dismissOrder">Not now</button>
+      <span class="status" id="incomingStatus"></span>
+    </div>
+  </section>
+
   <dl class="stats" id="stats">
     <div class="stat"><dt>Listings</dt><dd id="statItems">0</dd></div>
     <div class="stat"><dt>Units in stock</dt><dd id="statUnits">0</dd></div>
@@ -1353,6 +1364,124 @@
     $(id).addEventListener("change", readSettings);
   });
 
+  /* ---------- applying an order to stock ---------- */
+
+  var APPLIED_KEY = "shop-applied-orders";
+  var incoming = null;
+
+  function appliedIds() {
+    try { return JSON.parse(localStorage.getItem(APPLIED_KEY) || "[]"); }
+    catch (e) { return []; }
+  }
+
+  function markApplied(id) {
+    var all = appliedIds();
+    all.push(id);
+    try { localStorage.setItem(APPLIED_KEY, JSON.stringify(all.slice(-200))); }
+    catch (e) { /* nothing worse than a repeat prompt */ }
+  }
+
+  function readOrderFromHash() {
+    var m = (location.hash || "").match(/^#order=(.+)$/);
+    if (!m) { return null; }
+    try {
+      var b64 = m[1].replace(/-/g, "+").replace(/_/g, "/");
+      while (b64.length % 4) { b64 += "="; }
+      var data = JSON.parse(decodeURIComponent(escape(atob(b64))));
+      return (data && Array.isArray(data.l)) ? data : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function showIncoming() {
+    incoming = readOrderFromHash();
+    if (!incoming) { return; }
+
+    var already = appliedIds().indexOf(incoming.o) !== -1;
+    $("incomingWho").textContent = incoming.n
+      ? "Ordered by " + incoming.n
+      : "An order from your shop";
+
+    var list = $("incomingLines");
+    list.textContent = "";
+    var anyMissing = false;
+
+    incoming.l.forEach(function (pair) {
+      var item = null;
+      draft.items.forEach(function (it) { if (it.id === pair[0]) { item = it; } });
+
+      var li = document.createElement("li");
+      li.className = "stock-row";
+
+      var img = document.createElement("img");
+      img.className = "thumb";
+      img.alt = "";
+      var src = item && (item._local || item.image);
+      if (src) { img.src = src; }
+      li.appendChild(img);
+
+      var meta = document.createElement("div");
+      meta.className = "stock-meta";
+      var b = document.createElement("b");
+      b.textContent = (item ? item.name : "An item that is no longer listed");
+      meta.appendChild(b);
+      var small = document.createElement("small");
+      if (item) {
+        var now = stockOf(item);
+        var after = Math.max(0, now - pair[1]);
+        small.textContent = pair[1] + " ordered  /  " + now + " in stock, going to " + after;
+        if (pair[1] > now) { small.className = ""; small.textContent += " (more ordered than you had)"; }
+      } else {
+        anyMissing = true;
+        small.textContent = pair[1] + " ordered, nothing to change";
+      }
+      meta.appendChild(small);
+      li.appendChild(meta);
+      list.appendChild(li);
+    });
+
+    $("applyOrder").disabled = already;
+    setStatus($("incomingStatus"), already
+      ? "You have already taken this order off your stock."
+      : (anyMissing ? "Some of it is no longer listed and will be skipped." : ""));
+    $("incoming").hidden = false;
+    $("incoming").scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  function clearIncoming() {
+    $("incoming").hidden = true;
+    incoming = null;
+    if (location.hash) {
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+  }
+
+  $("applyOrder").addEventListener("click", function () {
+    if (!incoming) { return; }
+    var changed = 0;
+    incoming.l.forEach(function (pair) {
+      draft.items.forEach(function (it) {
+        if (it.id === pair[0]) {
+          it.qty = Math.max(0, stockOf(it) - pair[1]);
+          changed++;
+        }
+      });
+    });
+    markApplied(incoming.o);
+    clearIncoming();
+    persist().then(function () {
+      renderStats();
+      renderStock();
+      renderPublishState();
+      setStatus($("exportStatus"), changed
+        ? "Stock updated for " + changed + (changed === 1 ? " item." : " items.")
+        : "Nothing on that order is still listed.");
+    });
+  });
+
+  $("dismissOrder").addEventListener("click", clearIncoming);
+
   /* ---------- Telegram notifications ---------- */
 
   function tgApi(method, params) {
@@ -1708,9 +1837,12 @@
           return persist().then(function () {
             clearForm();
             renderAll();
+            /* the order panel may have drawn before the stock arrived */
+            showIncoming();
           });
         }
         renderPublishState();
+        showIncoming();
       });
     });
   });
@@ -1831,6 +1963,7 @@
       renderAll();
       booted = true;
       renderPublishState();
+      showIncoming();
     });
 })();
 </script>
