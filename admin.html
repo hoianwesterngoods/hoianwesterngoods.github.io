@@ -736,6 +736,31 @@
   </section>
 
   <section class="panel">
+    <h2>Visitor stats</h2>
+    <p class="sub">Counts how many people open your shop, using Cloudflare Web Analytics.</p>
+    <div class="col">
+      <label class="field">
+        <span>Web Analytics token</span>
+        <input type="text" id="cfToken" placeholder="Paste the token from Cloudflare" autocomplete="off" spellcheck="false" />
+      </label>
+      <p class="in-sync" id="ownerNote">This browser is marked as yours, so your own visits are never counted.</p>
+      <p class="hint">The numbers appear in Cloudflare, not here &mdash; open
+        <strong>Web Analytics</strong> in the Cloudflare dashboard to see them. Nothing is stored
+        about who your visitors are, and it does not use cookies.</p>
+      <details class="help">
+        <summary>Where do I get the token?</summary>
+        <ol class="setup-steps">
+          <li>In the Cloudflare dashboard, open <strong>Analytics &amp; Logs</strong> &rarr; <strong>Web Analytics</strong>.</li>
+          <li>Press <strong>Add a site</strong>.</li>
+          <li>Hostname: <code>waldenjay674-ctrl.github.io</code>. Press <strong>Done</strong>.</li>
+          <li>It shows you a snippet. The token is the long code inside it, after <code>"token":</code>.</li>
+          <li>Copy just that code and paste it above.</li>
+        </ol>
+      </details>
+    </div>
+  </section>
+
+  <section class="panel">
     <h2>Connection</h2>
     <p class="sub">Where this page publishes to. All of it stays on this device.</p>
     <div class="col">
@@ -911,6 +936,9 @@
     c.currency = c.currency || "VND";
     c.orderPhone = c.orderPhone || "";
     c.deliveryNote = c.deliveryNote || "";
+    c.analytics = (c.analytics && typeof c.analytics === "object")
+      ? { token: c.analytics.token || "" }
+      : { token: "" };
     c.telegram = (c.telegram && typeof c.telegram === "object")
       ? { token: c.telegram.token || "", chatId: c.telegram.chatId || "" }
       : { token: "", chatId: "" };
@@ -984,6 +1012,7 @@
                        "deliveryNote", "collection", "delivery"];
     var settingsChanged = settingKeys.some(function (k) { return draft[k] !== pub[k]; });
     if (JSON.stringify(draft.telegram || {}) !== JSON.stringify(pub.telegram || {})) { settingsChanged = true; }
+    if (JSON.stringify(draft.analytics || {}) !== JSON.stringify(pub.analytics || {})) { settingsChanged = true; }
     if (settingsChanged) { n++; }
     return n;
   }
@@ -1016,6 +1045,7 @@
     $("shopDeliveryNote").value = draft.deliveryNote || "";
     $("optCollection").checked = draft.collection !== false;
     $("optDelivery").checked = draft.delivery !== false;
+    $("cfToken").value = (draft.analytics && draft.analytics.token) || "";
     $("tgToken").value = (draft.telegram && draft.telegram.token) || "";
     $("tgChat").value = (draft.telegram && draft.telegram.chatId) || "";
     fillCategoryPicker();
@@ -1551,6 +1581,19 @@
     $(id).addEventListener("input", saveTelegram);
   });
 
+  /* ---------- visitor stats ---------- */
+
+  /* mark this browser as Jay's so the shop never counts him */
+  try { localStorage.setItem("shop-owner", "1"); } catch (e) { /* private mode */ }
+
+  function saveAnalytics() {
+    draft.analytics = { token: ($("cfToken").value || "").trim() };
+    persist();
+    renderPublishState();
+  }
+
+  $("cfToken").addEventListener("input", saveAnalytics);
+
   /* ---------- GitHub connection ---------- */
 
   var CATEGORIES = ["Confectionary", "Toiletries", "Feminine Hygiene"];
@@ -1678,6 +1721,7 @@
         token: (draft.telegram && draft.telegram.token) || "",
         chatId: (draft.telegram && draft.telegram.chatId) || ""
       },
+      analytics: { token: (draft.analytics && draft.analytics.token) || "" },
       categories: draft.categories || CATEGORIES.slice(),
       items: draft.items.map(function (it) {
         return {

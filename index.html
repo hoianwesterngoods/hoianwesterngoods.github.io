@@ -1345,7 +1345,8 @@
     version: 3, name: "For Sale", tagline: "", contact: "", currency: "VND",
     orderPhone: "", collection: true, delivery: true, deliveryNote: "",
     categories: [], items: [],
-    telegram: { token: "", chatId: "" }
+    telegram: { token: "", chatId: "" },
+    analytics: { token: "" }
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -2143,6 +2144,24 @@
     b.addEventListener("click", function () { $(b.getAttribute("data-close")).close(); });
   });
 
+  /* ---------- visitor counting ---------- */
+
+  /* the admin marks the browsers Jay uses, and those are never counted */
+  function isOwnersBrowser() {
+    try { return localStorage.getItem("shop-owner") === "1"; }
+    catch (e) { return false; }
+  }
+
+  function startAnalytics() {
+    var token = (CATALOG.analytics && CATALOG.analytics.token) || "";
+    if (!token || isOwnersBrowser()) { return; }
+    var tag = document.createElement("script");
+    tag.defer = true;
+    tag.src = "https://static.cloudflareinsights.com/beacon.min.js";
+    tag.setAttribute("data-cf-beacon", JSON.stringify({ token: token }));
+    document.head.appendChild(tag);
+  }
+
   /* ---------- boot ---------- */
 
   /* The built site only refreshes after GitHub rebuilds it, which takes about a
@@ -2182,6 +2201,7 @@
       if (data && Array.isArray(data.items)) { CATALOG = data; }
       loadBasket();
       renderShop();
+      startAnalytics();
     })
     .catch(function () {
       renderShop();
