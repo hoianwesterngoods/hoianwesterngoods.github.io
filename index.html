@@ -2145,11 +2145,39 @@
 
   /* ---------- boot ---------- */
 
-  fetch("catalog.json?t=" + Date.now(), { cache: "no-store" })
-    .then(function (res) {
-      if (!res.ok) { throw new Error("HTTP " + res.status); }
-      return res.json();
-    })
+  /* The built site only refreshes after GitHub rebuilds it, which takes about a
+     minute. The same file is readable from the repository the instant it is saved,
+     so try that first and fall back if the network blocks it. */
+  function repoCatalogUrl() {
+    var host = location.hostname;
+    if (!/\.github\.io$/.test(host)) { return null; }
+    var owner = host.replace(/\.github\.io$/, "");
+    return "https://raw.githubusercontent.com/" + owner + "/" + host + "/main/catalog.json";
+  }
+
+  function fetchJson(url, ms) {
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = controller ? setTimeout(function () { controller.abort(); }, ms) : null;
+    return fetch(url, { cache: "no-store", signal: controller ? controller.signal : undefined })
+      .then(function (res) {
+        if (timer) { clearTimeout(timer); }
+        if (!res.ok) { throw new Error("HTTP " + res.status); }
+        return res.json();
+      }, function (err) {
+        if (timer) { clearTimeout(timer); }
+        throw err;
+      });
+  }
+
+  function loadCatalog() {
+    var bust = "?t=" + Date.now();
+    var fresh = repoCatalogUrl();
+    var slow = function () { return fetchJson("catalog.json" + bust, 8000); };
+    if (!fresh) { return slow(); }
+    return fetchJson(fresh + bust, 2500).catch(slow);
+  }
+
+  loadCatalog()
     .then(function (data) {
       if (data && Array.isArray(data.items)) { CATALOG = data; }
       loadBasket();
