@@ -611,13 +611,17 @@
         <div class="row">
           <label class="field">
             <span>Price</span>
-            <input type="text" id="price" placeholder="45" />
+            <input type="text" id="price" placeholder="120k" />
           </label>
           <label class="field">
             <span>Stock</span>
             <input type="number" id="qty" min="0" step="1" value="1" />
           </label>
         </div>
+
+        <p class="hint" style="margin-top:-0.4rem;">Type <strong>120k</strong> for 120,000.
+          <strong>1.5m</strong> works too. Or write anything else, like
+          <strong>Make an offer</strong>.</p>
 
         <label class="field">
           <span>Category</span>
@@ -848,32 +852,46 @@
     return it.sold ? 0 : 1;
   }
 
+  /* money here must match the shop exactly, including the shop's own currency */
+  var CURRENCIES = {
+    VND: { suffix: " \u20AB", decimals: 0 },
+    USD: { prefix: "$", decimals: 2 },
+    GBP: { prefix: "\u00A3", decimals: 2 },
+    EUR: { prefix: "\u20AC", decimals: 2 },
+    AUD: { prefix: "A$", decimals: 2 }
+  };
+
+  function currencySpec() {
+    var code = (draft && draft.currency) || "VND";
+    return CURRENCIES[code] || CURRENCIES.VND;
+  }
+
+  /* accepts 120000, "120,000", "120k", "1.5m" */
   function priceNumber(raw) {
-    var bare = String(raw == null ? "" : raw).replace(/[$,\s]/g, "");
-    return /^\d+(\.\d+)?$/.test(bare) ? parseFloat(bare) : 0;
+    var s = String(raw == null ? "" : raw).trim().toLowerCase();
+    s = s.replace(/[,\s\u20AB\u00A3\u20AC$]/g, "").replace(/vnd|usd|gbp|eur|aud|d\u0111|\u0111/g, "");
+    var m = s.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
+    if (!m) { return 0; }
+    var n = parseFloat(m[1]);
+    if (m[2] === "k") { n *= 1000; }
+    if (m[2] === "m") { n *= 1000000; }
+    return n;
+  }
+
+  function money(n) {
+    var c = currencySpec();
+    var body = n.toLocaleString("en-US", {
+      minimumFractionDigits: c.decimals && Math.round(n * 100) % 100 !== 0 ? c.decimals : 0,
+      maximumFractionDigits: c.decimals
+    });
+    return (c.prefix || "") + body + (c.suffix || "");
   }
 
   function formatPrice(raw) {
     var s = String(raw == null ? "" : raw).trim();
     if (!s) { return "No price"; }
-    var bare = s.replace(/[$,\s]/g, "");
-    if (/^\d+(\.\d+)?$/.test(bare)) {
-      var n = parseFloat(bare);
-      var whole = Math.round(n * 100) % 100 === 0;
-      return "$" + n.toLocaleString("en-US", {
-        minimumFractionDigits: whole ? 0 : 2,
-        maximumFractionDigits: 2
-      });
-    }
-    return s;
-  }
-
-  function money(n) {
-    var whole = Math.round(n * 100) % 100 === 0;
-    return "$" + n.toLocaleString("en-US", {
-      minimumFractionDigits: whole ? 0 : 2,
-      maximumFractionDigits: 2
-    });
+    var n = priceNumber(raw);
+    return n ? money(n) : s;
   }
 
   function newId() {
