@@ -20,5 +20,15 @@
     "Toiletries",
     "Feminine Hygiene"
   ],
-  "items": []
+  "items": [
+    {
+      "id": "imt5f6n2b4hpuz",
+      "name": "Robinsons Mini - Orange",
+      "price": "120",
+      "qty": 3,
+      "note": "",
+      "category": "Confectionary",
+      "image": "images/imt5f6n2b4hpuz.jpg"
+    }
+  ]
 }
