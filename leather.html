@@ -318,6 +318,8 @@
           <div class="field"><label for="lining">Lining</label>
             <select id="lining"><option>Heavy Cotton Canvas</option><option>Suede</option><option>Unlined</option></select></div>
         </div>
+        <div class="field" style="margin-top:.8rem"><label for="shoePocket">Shoe pocket at the end</label>
+          <select id="shoePocket"><option value="">No</option><option value="yes">Yes</option></select></div>
         <div class="field" style="margin-top:.8rem"><label for="closure">Closure</label><input id="closure" type="text" autocomplete="off"></div>
         <div class="field" style="margin-top:.8rem"><label for="features">Features (one per line)</label><textarea id="features" rows="5"></textarea></div>
         <div class="field" style="margin-top:.8rem"><label for="notes">Description</label><textarea id="notes"></textarea></div>
@@ -447,6 +449,7 @@
     <h3>Policies shown in every description</h3>
     <div class="field"><label for="setShipping">Shipping</label><textarea id="setShipping"></textarea></div>
     <div class="field" style="margin-top:.8rem"><label for="setReturns">Returns</label><textarea id="setReturns"></textarea></div>
+    <div class="field" style="margin-top:.8rem"><label for="setMaker">About the maker</label><textarea id="setMaker" rows="3"></textarea></div>
     <div style="margin-top:1rem"><button class="btn small" id="resetSettings" type="button">Restore defaults</button></div>
   </div>
 </dialog>
@@ -585,7 +588,8 @@
     targetMargin: 30,
     costs: {},
     shipping: 'Ships within 2 business days, carefully packed in a protective dust bag. Tracking provided on every order.',
-    returns: '30-day returns accepted. Item must be unused and in original condition.'
+    returns: '30-day returns accepted. Item must be unused and in original condition.',
+    maker: 'Every J&L bag is made by a small, family-run team of leather makers in Hoi An, Vietnam. Each piece is cut, stitched and finished by hand, with care and love, so no two are exactly alike.'
   };
 
   /* ---------- storage (safe) ---------- */
@@ -870,9 +874,10 @@
             '  "finish": use one of ' + JSON.stringify(optionsOf('finish')) + ' when it fits, otherwise your own 1-3 words,',
             '  "hardware": metal colour of buckles and zips; use one of ' + JSON.stringify(optionsOf('hardware')) + ' when it fits, otherwise your own 1-3 words,',
             '  "lining": exactly one of ' + JSON.stringify(optionsOf('lining')) + ',',
+            '  "shoePocket": true only if a separate pocket or compartment for shoes is clearly visible at an end of the bag (often a zipped panel on the short end), otherwise false,',
             '  "closure": short phrase, e.g. "Full-length zip",',
             '  "features": 3 to 7 short features visible in the photos, e.g. "Detachable padded shoulder strap",',
-            '  "description": 2 plain sentences describing the look and character of this bag for buyers, no hype, no sizes or prices; if you mention colour or finish, use exactly the words you gave above and no other colour words; never call the leather anything other than full grain,',
+            '  "description": 2 plain sentences describing the look and character of this bag for buyers, no hype, no sizes or prices; if you mention colour or finish, use exactly the words you gave above and no other colour words; never call the leather anything other than full grain; do not mention shoe pockets or where it is made (the page adds those),',
             '  "unsure": list of the field names above you could not see clearly',
             '}',
             'If the lining is not visible, use "Heavy Cotton Canvas" and add "lining" to unsure.'
@@ -911,6 +916,8 @@
     [['color', 'colour'], ['finish', 'finish'], ['hardware', 'hardware'], ['lining', 'lining']].forEach(function (f) {
       if (pick(f[0], r[f[0]])) filled.push(f[1]); else missed.push(f[1]);
     });
+    $('shoePocket').value = r.shoePocket === true ? 'yes' : '';
+    if (r.shoePocket === true) filled.push('shoe pocket');
     if (typeof r.closure === 'string' && r.closure.trim()) { $('closure').value = r.closure.trim().slice(0, 60); filled.push('closure'); }
     var feats = Array.isArray(r.features) ? r.features.filter(function (x) { return typeof x === 'string' && x.trim(); }).slice(0, 8).map(function (x) { return x.trim().slice(0, 90); }) : [];
     if (feats.length) { $('features').value = feats.join('\n'); filled.push('features'); }
@@ -959,7 +966,7 @@
   }
 
   /* ---------- generator ---------- */
-  var FIELDS = ['grain', 'finish', 'color', 'hardware', 'lining', 'condition', 'qty', 'priceOverride', 'buyVnd', 'closure', 'features', 'notes'];
+  var FIELDS = ['grain', 'finish', 'color', 'hardware', 'lining', 'condition', 'qty', 'priceOverride', 'buyVnd', 'closure', 'features', 'notes', 'shoePocket'];
   FIELDS.forEach(function (f) {
     $(f).addEventListener('input', function () {
       if (f === 'buyVnd') {
@@ -1035,6 +1042,8 @@
       ['Item Weight', 'approx. ' + s.kg + ' kg'],
       ['Closure', o.closure.trim() || defaultClosure(state.type)],
       ['Handmade', 'Yes'],
+      ['Country of Origin', 'Vietnam'],
+      ['Shoe Compartment', o.shoePocket === 'yes' ? 'Yes' : ''],
       ['Condition', o.condition]
     ];
     if (s.laptop) rows.splice(14, 0, ['Laptop Size', 'Up to ' + s.laptop]);
@@ -1046,6 +1055,9 @@
     var accent = '#7A4424', ink = '#2A1F17', muted = '#75665A', line = '#E4D9C8', cream = '#FAF6EF';
     var features = o.features.split('\n').map(function (x) { return x.replace(/^[\s•*-]+/, '').trim(); }).filter(Boolean);
     if (!features.length) features = t.features.slice();
+    var shoe = o.shoePocket === 'yes';
+    if (shoe && !features.some(function (f) { return /shoe/i.test(f); })) features.splice(1, 0, 'Separate shoe pocket at the end');
+    if (!shoe) features = features.filter(function (f) { return !/shoe/i.test(f); });
     if (o.lining !== 'Unlined') features.push(o.lining + ' interior lining');
     features.push(o.hardware + ' hardware throughout');
     var notes = o.notes.trim()
@@ -1068,8 +1080,10 @@
         '<p style="margin:0 0 14px;line-height:1.65">' + esc(m.copy) + '</p>' +
         '<p style="margin:0 0 18px;line-height:1.65">Our ' + esc(s.label === 'XL' ? 'XL' : s.label.toLowerCase()) + ' ' + esc(t.label.toLowerCase()) +
           ' is made from ' + esc([o.color, o.finish, 'full grain'].filter(Boolean).join(' ').toLowerCase()) +
-          ' leather — ideal for ' + esc(s.use.charAt(0).toLowerCase() + s.use.slice(1)) + (s.laptop ? ', with room for a laptop up to ' + esc(s.laptop) : '') + '.</p>' +
+          ' leather — ideal for ' + esc(s.use.charAt(0).toLowerCase() + s.use.slice(1)) + (s.laptop ? ', with room for a laptop up to ' + esc(s.laptop) : '') + '.' +
+          (shoe ? ' A separate pocket at the end keeps your shoes apart from your clothes.' : '') + '</p>' +
         notes +
+        (settings.maker ? h('Handmade in Hoi An') + '<p style="margin:0;line-height:1.65">' + esc(settings.maker) + '</p>' : '') +
         h('Features') +
         '<ul style="margin:0;padding-left:20px;line-height:1.8">' + features.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>' +
         h('Specifications') +
@@ -1135,6 +1149,7 @@
       '<dt>Product</dt><dd>' + esc(t.label) + '</dd>' +
       item('Colour', o.color) + item('Finish', o.finish) + item('Hardware', o.hardware) +
       item('Lining', fromPhotos ? o.lining : '') + item('Closure', fromPhotos ? o.closure : '') +
+      item('Shoe pocket', fromPhotos ? (o.shoePocket === 'yes' ? 'Yes, at the end' : 'None visible') : '') +
       item('Features', fromPhotos && feats.length ? feats : '', true);
   }
   function renderProfit(price, buy) {
@@ -1298,7 +1313,7 @@
     state.photos = []; state.editingId = null; state.titleEdited = false;
     $('notes').value = ''; $('priceOverride').value = ''; $('qty').value = 1;
     var rc = settings.costs[costKey()]; $('buyVnd').value = rc ? rc.toLocaleString('en-GB') : '';
-    fillTypeDefaults(); state.aiNotes = ''; $('color').value = ''; $('finish').value = ''; $('hardware').value = ''; if (aiCtl) aiCtl.abort(); $('aiBox').hidden = true;
+    fillTypeDefaults(); state.aiNotes = ''; $('color').value = ''; $('finish').value = ''; $('hardware').value = ''; $('shoePocket').value = ''; if (aiCtl) aiCtl.abort(); $('aiBox').hidden = true;
     renderThumbs(); $('colorSuggest').hidden = true; generate();
     toast('Ready for a new listing');
   });
@@ -1311,6 +1326,7 @@
     $('setSkuPrefix').value = settings.skuPrefix;
     $('setShipping').value = settings.shipping;
     $('setReturns').value = settings.returns;
+    $('setMaker').value = settings.maker || '';
     $('setRate').value = settings.vndPerGbp;
     $('setTarget').value = settings.targetMargin;
     $('setVatRate').value = settings.vatRate;
@@ -1363,6 +1379,7 @@
     settings.skuPrefix = ($('setSkuPrefix').value.trim() || 'JC').toUpperCase();
     settings.shipping = $('setShipping').value.trim();
     settings.returns = $('setReturns').value.trim();
+    settings.maker = $('setMaker').value.trim();
     settings.vndPerGbp = Number($('setRate').value) || DEFAULTS.vndPerGbp;
     settings.targetMargin = Number($('setTarget').value) || 0;
     settings.vatRate = $('setVatRate').value === '' ? DEFAULTS.vatRate : Number($('setVatRate').value) || 0;
