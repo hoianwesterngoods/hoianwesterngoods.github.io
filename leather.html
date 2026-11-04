@@ -292,6 +292,8 @@
       <span class="step">Step 3</span>
       <h2>Price &amp; stock</h2>
       <div class="grid2">
+        <div class="field"><label for="priceOverride">Your price (£)</label>
+          <input id="priceOverride" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 169"></div>
         <div class="field"><label for="buyVnd">Buy price (VND)</label>
           <input id="buyVnd" type="text" inputmode="numeric" placeholder="e.g. 1,850,000" autocomplete="off">
           <div class="field-hint" id="buyHint"></div></div>
@@ -299,8 +301,6 @@
           <input id="qty" type="number" min="1" value="1"></div>
         <div class="field"><label for="condition">Condition</label>
           <select id="condition"><option>New with tags</option><option>New without tags</option></select></div>
-        <div class="field"><label for="priceOverride">Price override (£)</label>
-          <input id="priceOverride" type="number" min="0" step="1" placeholder="Auto"></div>
       </div>
     </div>
 
@@ -340,7 +340,6 @@
       <div class="price-row">
         <div>
           <div class="big-price" id="outPrice">£0</div>
-          <div class="price-break" id="outPriceBreak"></div>
         </div>
         <div class="price-break" id="outSku"></div>
       </div>
@@ -348,7 +347,7 @@
       <div class="out-block profit-block">
         <div class="out-head"><span class="lbl">Profit per sale</span></div>
         <table class="specs profit"><tbody id="outProfit"></tbody></table>
-        <p class="target" id="outTarget"></p>
+        <p class="target" id="outTarget" hidden></p>
       </div>
 
       <div class="out-block">
@@ -399,12 +398,6 @@
       <div class="field"><label for="setSkuPrefix">SKU prefix</label><input id="setSkuPrefix" maxlength="6"></div>
     </div>
 
-    <h3>Selling prices (GBP, including VAT)</h3>
-    <table class="price-table" id="priceTable"></table>
-    <div class="grid2" style="margin-top:.8rem">
-      <div class="field"><label for="addBufDuffle">Buffalo hide surcharge — duffles</label><input id="addBufDuffle" type="number" min="0"></div>
-      <div class="field"><label for="addBufBackpack">Buffalo hide surcharge — backpacks</label><input id="addBufBackpack" type="number" min="0"></div>
-    </div>
 
     <h3>Costs &amp; margins</h3>
     <div class="grid2">
@@ -734,10 +727,6 @@
     return '<div class="tile"><input type="radio" name="' + group + '" id="' + id + '" value="' + value + '"' + (checked ? ' checked' : '') + '>' +
       '<label for="' + id + '"><b>' + esc(title) + '</b><span>' + esc(sub) + '</span>' + (extra || '') + '</label></div>';
   }
-  function priceFor(type, size, material) {
-    var base = Number(settings.prices[type][size]) || 0;
-    return base + (material === 'buffalo' ? Number(settings.buffaloAdd[type]) || 0 : 0);
-  }
   function renderTiles() {
     $('typeTiles').innerHTML = Object.keys(TYPES).map(function (k) {
       return tile('type', k, TYPES[k].label, TYPES[k].blurb, state.type === k);
@@ -746,13 +735,10 @@
     if (!sizes[state.size]) state.size = 'M';
     $('sizeTiles').innerHTML = Object.keys(sizes).map(function (k) {
       var s = sz(state.type, k, state.material);
-      return tile('size', k, s.label + ' · ' + s.lead, s.dims + (s.cap ? ' · ' + s.cap : '') + ' · ~' + s.kg + ' kg', state.size === k,
-        '<span class="price">' + money(priceFor(state.type, k, state.material)) + '</span>');
+      return tile('size', k, s.label + ' · ' + s.lead, s.dims + (s.cap ? ' · ' + s.cap : '') + ' · ~' + s.kg + ' kg', state.size === k);
     }).join('');
     $('materialTiles').innerHTML = Object.keys(MATERIALS).map(function (k) {
-      var add = Number(settings.buffaloAdd[state.type]) || 0;
-      var extra = k === 'buffalo' && add ? '<span class="price">+' + money(add) + '</span>' : '<span class="price">Base price</span>';
-      return tile('material', k, MATERIALS[k].label, MATERIALS[k].blurb, state.material === k, extra);
+      return tile('material', k, MATERIALS[k].label, MATERIALS[k].blurb, state.material === k);
     }).join('');
   }
   document.addEventListener('change', function (e) {
@@ -1028,7 +1014,7 @@
   function buildSku(t, s, m, o) {
     var col = o.color.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
     var n = String(saved.length + 1).padStart(3, '0');
-    return [settings.skuPrefix || 'JC', t.code, s === undefined ? '' : state.size, m.code, col, n].join('-');
+    return [settings.skuPrefix || 'JL', t.code, state.size, m.code, col, n].filter(Boolean).join('-');
   }
 
   function buildSpecs(t, s, m, o) {
@@ -1116,8 +1102,7 @@
     var o = {};
     FIELDS.forEach(function (f) { o[f] = val(f); });
 
-    var auto = priceFor(state.type, state.size, state.material);
-    var price = o.priceOverride !== '' && Number(o.priceOverride) > 0 ? Number(o.priceOverride) : auto;
+    var price = Number(o.priceOverride) > 0 ? Number(o.priceOverride) : 0;
     var title = state.titleEdited ? $('outTitle').value : buildTitle(t, s, m, o);
     var specs = buildSpecs(t, s, m, o);
     var sku = state.editingId ? current.sku : buildSku(t, s, m, o);
@@ -1128,11 +1113,7 @@
       html: buildDescription(title, t, s, m, o)
     };
 
-    $('outPrice').textContent = money(price);
-    var base = Number(settings.prices[state.type][state.size]) || 0;
-    $('outPriceBreak').textContent = (o.priceOverride !== '' && Number(o.priceOverride) > 0)
-      ? 'Manual price (suggested ' + money(auto) + ')'
-      : t.label + ' ' + s.label + ' ' + money(base) + (state.material === 'buffalo' ? ' + buffalo ' + money(settings.buffaloAdd[state.type]) : '');
+    $('outPrice').textContent = price ? money(price) : '£ —';
     $('outSku').textContent = 'SKU ' + sku + ' · Qty ' + current.qty;
     renderProfit(price, parseVnd(o.buyVnd));
     renderSummary(t, o);
@@ -1176,15 +1157,12 @@
         money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>' + (si.over ? ' <span class="pill warn">over your top band</span>' : '')) +
       row('Buyer pays in total', money(price + p.ship), 'total');
     current.postage = p.ship;
+    if (!price) html = row('Postage, paid by buyer <span class="muted">(' + si.kg + ' kg, ' + si.band + ')</span>', money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>');
     $('outProfit').innerHTML = html;
     var tgt = $('outTarget');
-    if (buy && p.target) {
-      tgt.innerHTML = 'For a ' + settings.targetMargin + '% margin, list at <b>' + money(p.target) + '</b> <button class="btn small" type="button" id="useTarget">Use this price</button>';
-      tgt.hidden = false;
-      $('useTarget').onclick = function () { $('priceOverride').value = p.target; generate(); toast('Price set to ' + money(p.target)); };
-    } else if (!buy) {
-      tgt.textContent = 'Enter the buy price in VND to see your profit.'; tgt.hidden = false;
-    } else { tgt.hidden = true; }
+    var need = [!price && 'your price', !buy && 'the buy price'].filter(Boolean);
+    tgt.textContent = need.length ? 'Enter ' + need.join(' and ') + ' to see your profit.' : '';
+    tgt.hidden = !need.length;
   }
   function updateCount() {
     var n = $('outTitle').value.length, c = $('titleCount');
@@ -1331,8 +1309,6 @@
     $('setBrand').value = settings.brand;
     $('setTagline').value = settings.tagline;
     $('setSkuPrefix').value = settings.skuPrefix;
-    $('addBufDuffle').value = settings.buffaloAdd.duffle;
-    $('addBufBackpack').value = settings.buffaloAdd.backpack;
     $('setShipping').value = settings.shipping;
     $('setReturns').value = settings.returns;
     $('setRate').value = settings.vndPerGbp;
@@ -1364,15 +1340,6 @@
     updateCalcCells();
     fillBands();
     $('nameIdeas').innerHTML = NAME_IDEAS.map(function (n) { return '<button class="btn small" type="button" data-name="' + esc(n) + '">' + esc(n) + '</button>'; }).join('');
-    var html = '<tr><th>Product</th><th>Size</th><th>Cowhide price</th><th>Buffalo price</th></tr>';
-    Object.keys(TYPES).forEach(function (t) {
-      Object.keys(TYPES[t].sizes).forEach(function (s) {
-        html += '<tr><td>' + TYPES[t].label + '</td><td>' + TYPES[t].sizes[s].label + ' ' + sz(t, s, 'cow').lead + '</td>' +
-          '<td><input type="number" min="0" data-pt="' + t + '" data-ps="' + s + '" value="' + settings.prices[t][s] + '" aria-label="' + TYPES[t].label + ' ' + TYPES[t].sizes[s].label + ' price"></td>' +
-          '<td class="bufp" data-bt="' + t + '" data-bs="' + s + '">' + money(priceFor(t, s, 'buffalo')) + '</td></tr>';
-      });
-    });
-    $('priceTable').innerHTML = html;
   }
   function updateCalcCells() {
     document.querySelectorAll('[data-calc-kg]').forEach(function (td) {
@@ -1394,8 +1361,6 @@
     settings.brand = $('setBrand').value.trim() || DEFAULTS.brand;
     settings.tagline = $('setTagline').value.trim();
     settings.skuPrefix = ($('setSkuPrefix').value.trim() || 'JC').toUpperCase();
-    settings.buffaloAdd.duffle = Number($('addBufDuffle').value) || 0;
-    settings.buffaloAdd.backpack = Number($('addBufBackpack').value) || 0;
     settings.shipping = $('setShipping').value.trim();
     settings.returns = $('setReturns').value.trim();
     settings.vndPerGbp = Number($('setRate').value) || DEFAULTS.vndPerGbp;
@@ -1421,8 +1386,6 @@
       if (i.dataset.bk === 'upTo') b.upTo = i.value === '' ? '' : Number(i.value);
       else b.vnd = parseVnd(i.value);
     });
-    document.querySelectorAll('[data-pt]').forEach(function (i) { settings.prices[i.dataset.pt][i.dataset.ps] = Number(i.value) || 0; });
-    document.querySelectorAll('.bufp').forEach(function (td) { td.textContent = money(priceFor(td.dataset.bt, td.dataset.bs, 'buffalo')); });
     store('ls.settings', settings);
     updateCalcCells();
     applyBrand(); state.titleEdited = false; renderTiles(); generate();
