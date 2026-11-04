@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
 <title>Listing Studio</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&display=swap">
 <style>
   *, *::before, *::after { box-sizing: border-box; }
   body, h1, h2, h3, p, figure, dl, dd { margin: 0; }
@@ -208,6 +209,13 @@
   details.fix summary { cursor: pointer; color: var(--muted); font-size: .85rem; }
   details.fix[open] summary { margin-bottom: .8rem; }
 
+  .style-row { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; margin-top: .9rem; }
+  .style-row .lbl { font-size: .78rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-right: .3rem; }
+  .seg { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: .3rem .75rem; font-size: .82rem; }
+  .seg[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .thumb.busy::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,.35); }
+  .thumb.busy::before { content: ""; position: absolute; z-index: 1; left: 50%; top: 42%; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; border: 3px solid #fff; border-right-color: transparent; animation: spin .8s linear infinite; }
+
   /* saved */
   .saved-list li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: .75rem; align-items: center; padding: .6rem 0; border-bottom: 1px solid var(--line); }
   .saved-list li:last-child { border-bottom: 0; }
@@ -260,7 +268,14 @@
         or drag &amp; drop them here
       </div>
       <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      <div class="style-row" id="styleRow" role="group" aria-label="Photo style">
+        <span class="lbl">Photo style</span>
+        <button class="seg" type="button" data-style="branded" aria-pressed="true">Branded scene</button>
+        <button class="seg" type="button" data-style="white" aria-pressed="false">Clean white</button>
+        <button class="seg" type="button" data-style="original" aria-pressed="false">Original</button>
+      </div>
       <div class="thumbs" id="thumbs"></div>
+      <p class="field-hint" id="styleMsg" hidden></p>
       <div class="suggest" id="colorSuggest" hidden></div>
       <div class="ai" id="aiBox" hidden>
         <p class="ai-msg" id="aiMsg"></p>
@@ -382,7 +397,7 @@
       <div class="actions">
         <button class="btn primary" id="saveListing" type="button">Save listing</button>
         <button class="btn" data-copy="all" type="button">Copy everything</button>
-        <button class="btn" id="dlPhotos" type="button">Download eBay-ready photos</button>
+        <button class="btn" id="dlPhotos" type="button">Download photos (.zip)</button>
         <button class="btn ghost" id="resetForm" type="button">New listing</button>
       </div>
     </div>
@@ -793,11 +808,11 @@
       state.photos.push({ file: f, url: URL.createObjectURL(f) });
     });
     renderThumbs();
-    if (files.length) readPhotos();
+    if (files.length) { readPhotos(); styleAll(); }
   }
   function renderThumbs() {
     $('thumbs').innerHTML = state.photos.map(function (p, i) {
-      return '<div class="thumb"><img src="' + p.url + '" alt="Photo ' + (i + 1) + '">' +
+      return '<div class="thumb' + (p.busy ? ' busy' : '') + '"><img src="' + shownUrl(p) + '" alt="Photo ' + (i + 1) + '">' +
         (i === 0 ? '<span class="tag">MAIN</span>' : '') +
         '<div class="ctl">' +
         '<button type="button" data-ph="left" data-i="' + i + '" aria-label="Move left">‹</button>' +
@@ -809,7 +824,7 @@
   $('thumbs').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-ph]'); if (!b) return;
     var i = Number(b.dataset.i), a = state.photos, act = b.dataset.ph;
-    if (act === 'del') { URL.revokeObjectURL(a[i].url); a.splice(i, 1); }
+    if (act === 'del') { URL.revokeObjectURL(a[i].url); if (a[i].styled) URL.revokeObjectURL(a[i].styled.url); a.splice(i, 1); }
     if (act === 'left' && i > 0) a.splice(i - 1, 0, a.splice(i, 1)[0]);
     if (act === 'right' && i < a.length - 1) a.splice(i + 1, 0, a.splice(i, 1)[0]);
     renderThumbs();
@@ -1239,35 +1254,246 @@
       '\n\nITEM SPECIFICS\n' + specsText(current.specs) + '\n\nDESCRIPTION (HTML)\n' + current.html, 'Listing');
   });
 
-  /* ---------- eBay-ready photos ---------- */
+  /* ---------- photo styling: cut the bag out and place it on a branded backdrop ---------- */
+  var ORT_SRC = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.wasm.min.js';
+  var styleState = { session: null, loading: null, queue: Promise.resolve(), backdrops: {} };
+
+  function loadScript(src) {
+    return new Promise(function (res, rej) {
+      if (window.ort) return res();
+      var s = document.createElement('script'); s.src = src; s.onload = function () { res(); }; s.onerror = function () { rej(new Error('script')); };
+      document.head.appendChild(s);
+    });
+  }
+  function getSession() {
+    if (styleState.session) return Promise.resolve(styleState.session);
+    if (styleState.loading) return styleState.loading;
+    styleState.loading = loadScript(ORT_SRC).then(function () {
+      ort.env.wasm.wasmPaths = 'vendor/';
+      ort.env.wasm.numThreads = 1;
+      ort.env.wasm.proxy = false;
+      return ort.InferenceSession.create('vendor/u2netp.onnx', { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
+    }).then(function (s) { styleState.session = s; return s; }, function (e) { styleState.loading = null; throw e; });
+    return styleState.loading;
+  }
+
+  /* Run the background-removal model; returns a 320x320 canvas whose alpha is the bag. */
+  function bagMask(im) {
+    return getSession().then(function (session) {
+      var S = 320, c = document.createElement('canvas'); c.width = c.height = S;
+      var x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0, S, S);
+      var px = x.getImageData(0, 0, S, S).data, n = S * S, input = new Float32Array(3 * n);
+      var mean = [0.485, 0.456, 0.406], std = [0.229, 0.224, 0.225];
+      for (var i = 0; i < n; i++) for (var ch = 0; ch < 3; ch++) input[ch * n + i] = (px[i * 4 + ch] / 255 - mean[ch]) / std[ch];
+      var feeds = {}; feeds[session.inputNames[0]] = new ort.Tensor('float32', input, [1, 3, S, S]);
+      return session.run(feeds).then(function (out) {
+        var d = out[session.outputNames[0]].data, lo = Infinity, hi = -Infinity;
+        for (var i = 0; i < n; i++) { if (d[i] < lo) lo = d[i]; if (d[i] > hi) hi = d[i]; }
+        var m = x.createImageData(S, S), span = (hi - lo) || 1;
+        for (var j = 0; j < n; j++) {
+          var v = (d[j] - lo) / span;
+          v = Math.min(1, Math.max(0, (v - 0.2) / 0.6));          // firm up the edge
+          m.data[j * 4] = m.data[j * 4 + 1] = m.data[j * 4 + 2] = 255; m.data[j * 4 + 3] = Math.round(v * 255);
+        }
+        x.putImageData(m, 0, 0);
+        return c;
+      });
+    });
+  }
+
+  function brandParts() {
+    var b = settings.brand || '', m = b.match(/^(.*?)\s+(leather\s+co\.?|leatherworks|leather)$/i);
+    return m ? { big: m[1], small: m[2].toUpperCase() } : { big: b, small: '' };
+  }
+  function fontReady() {
+    if (!document.fonts || !document.fonts.load) return Promise.resolve();
+    return Promise.all([document.fonts.load('600 200px "Cormorant Garamond"'), document.fonts.load('500 60px "Cormorant Garamond"')]).catch(function () {});
+  }
+  var BRAND_FONT = '"Cormorant Garamond", "Didot", "Bodoni 72", Georgia, serif';
+
+  function rand(seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
+
+  /* Branded backdrop: charcoal wall with warm light and gold logo, wooden table top. */
+  function drawBackdrop(style) {
+    var key = style + '|' + settings.brand;
+    if (styleState.backdrops[key]) return Promise.resolve(styleState.backdrops[key]);
+    return fontReady().then(function () {
+      var W = 1600, H = 1600, c = document.createElement('canvas'); c.width = W; c.height = H;
+      var x = c.getContext('2d', { willReadFrequently: true }), r = rand(7);
+      if (style === 'white') {
+        var g0 = x.createRadialGradient(W / 2, H * 0.45, 100, W / 2, H * 0.5, W * 0.8);
+        g0.addColorStop(0, '#ffffff'); g0.addColorStop(1, '#eeebe6');
+        x.fillStyle = g0; x.fillRect(0, 0, W, H);
+        styleState.backdrops[key] = c; return c;
+      }
+      var tableY = Math.round(H * 0.6);
+      // wall
+      var g = x.createLinearGradient(0, 0, 0, tableY); g.addColorStop(0, '#2a2927'); g.addColorStop(1, '#1d1c1b');
+      x.fillStyle = g; x.fillRect(0, 0, W, tableY);
+      var spot = x.createRadialGradient(W * 0.42, -H * 0.05, 40, W * 0.45, H * 0.1, W * 0.75);
+      spot.addColorStop(0, 'rgba(255,214,160,0.32)'); spot.addColorStop(0.45, 'rgba(255,190,130,0.10)'); spot.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = spot; x.fillRect(0, 0, W, tableY);
+      // plaster texture
+      var tex = x.getImageData(0, 0, W, tableY), td = tex.data;
+      for (var i = 0; i < td.length; i += 4) { var nz = (r() - 0.5) * 10; td[i] += nz; td[i + 1] += nz; td[i + 2] += nz; }
+      x.putImageData(tex, 0, 0);
+      // logo
+      var bp = brandParts(), cx = W / 2;
+      var gold = x.createLinearGradient(0, H * 0.04, 0, H * 0.22);
+      gold.addColorStop(0, '#f7e3b5'); gold.addColorStop(0.45, '#d8b06c'); gold.addColorStop(0.7, '#a77c40'); gold.addColorStop(1, '#e9c98a');
+      x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+      x.save();
+      x.shadowColor = 'rgba(0,0,0,0.6)'; x.shadowBlur = 18; x.shadowOffsetY = 8;
+      var bigSize = bp.big.length > 6 ? 150 : 230;
+      x.font = '600 ' + bigSize + 'px ' + BRAND_FONT; x.fillStyle = gold;
+      x.fillText(bp.big, cx, H * 0.165);
+      x.restore();
+      if (bp.small) {
+        var sy = H * 0.225, small = bp.small.split('').join('  ');
+        x.save(); x.shadowColor = 'rgba(0,0,0,0.55)'; x.shadowBlur = 10; x.shadowOffsetY = 4;
+        x.font = '500 62px ' + BRAND_FONT; x.fillStyle = gold; x.fillText(small, cx, sy);
+        var tw = x.measureText(small).width, lineW = 190, gap = 34;
+        x.fillRect(cx - tw / 2 - gap - lineW, sy - 22, lineW, 4); x.fillRect(cx + tw / 2 + gap, sy - 22, lineW, 4);
+        x.restore();
+      }
+      // table top
+      var tg = x.createLinearGradient(0, tableY, 0, H); tg.addColorStop(0, '#4a2c19'); tg.addColorStop(0.5, '#603a21'); tg.addColorStop(1, '#3d2414');
+      x.fillStyle = tg; x.fillRect(0, tableY, W, H - tableY);
+      for (var k = 0; k < 170; k++) {            // wood grain, wider spacing towards the front
+        var t = k / 170, yy = tableY + Math.pow(t, 1.6) * (H - tableY), amp = 2 + t * 6, ph = r() * 6.28, fq = 0.002 + r() * 0.004;
+        x.beginPath();
+        for (var xx = 0; xx <= W; xx += 20) { var y2 = yy + Math.sin(xx * fq + ph) * amp + Math.sin(xx * fq * 3.1 + ph) * amp * 0.3; if (xx) x.lineTo(xx, y2); else x.moveTo(xx, y2); }
+        x.strokeStyle = r() > 0.5 ? 'rgba(25,12,5,' + (0.12 + r() * 0.2) + ')' : 'rgba(150,95,55,' + (0.06 + r() * 0.12) + ')';
+        x.lineWidth = 1 + r() * 2.5 * (0.5 + t); x.stroke();
+      }
+      var sheen = x.createRadialGradient(W / 2, tableY + 40, 20, W / 2, tableY + 80, W * 0.6);
+      sheen.addColorStop(0, 'rgba(255,200,150,0.22)'); sheen.addColorStop(1, 'rgba(255,200,150,0)');
+      x.fillStyle = sheen; x.fillRect(0, tableY, W, H - tableY);
+      var edge = x.createLinearGradient(0, tableY - 6, 0, tableY + 14); edge.addColorStop(0, 'rgba(0,0,0,0.55)'); edge.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = edge; x.fillRect(0, tableY - 6, W, 20);
+      // vignette
+      var v = x.createRadialGradient(W / 2, H * 0.5, W * 0.35, W / 2, H * 0.5, W * 0.85);
+      v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.5)');
+      x.fillStyle = v; x.fillRect(0, 0, W, H);
+      styleState.backdrops[key] = c; return c;
+    });
+  }
+
+  /* Cut out the bag from one photo and compose it on the chosen backdrop. Resolves a JPEG Blob. */
+  function stylePhoto(p, style) {
+    return loadImg(p.url).then(function (im) {
+      return Promise.all([bagMask(im), drawBackdrop(style)]).then(function (res) {
+        var mask = res[0], bg = res[1];
+        var k = Math.min(1, 1600 / Math.max(im.naturalWidth, im.naturalHeight));
+        var w = Math.round(im.naturalWidth * k), hh = Math.round(im.naturalHeight * k);
+        var cut = document.createElement('canvas'); cut.width = w; cut.height = hh;
+        var cx = cut.getContext('2d'); cx.imageSmoothingQuality = 'high';
+        cx.drawImage(im, 0, 0, w, hh);
+        cx.globalCompositeOperation = 'destination-in'; cx.drawImage(mask, 0, 0, w, hh);
+        // bounding box of the bag from the small mask
+        var md = mask.getContext('2d').getImageData(0, 0, 320, 320).data, x0 = 320, y0 = 320, x1 = -1, y1 = -1, area = 0;
+        for (var yy = 0; yy < 320; yy++) for (var xx = 0; xx < 320; xx++) if (md[(yy * 320 + xx) * 4 + 3] > 110) {
+          area++; if (xx < x0) x0 = xx; if (xx > x1) x1 = xx; if (yy < y0) y0 = yy; if (yy > y1) y1 = yy;
+        }
+        if (x1 < 0 || area < 320 * 320 * 0.03) throw new Error('no bag found');
+        var bx = x0 / 320 * w, by = y0 / 320 * hh, bw = (x1 - x0 + 1) / 320 * w, bh = (y1 - y0 + 1) / 320 * hh;
+        var W = 1600, H = 1600, out = document.createElement('canvas'); out.width = W; out.height = H;
+        var o = out.getContext('2d'); o.drawImage(bg, 0, 0);
+        var branded = style !== 'white';
+        var maxW = W * (branded ? 0.8 : 0.84), maxH = H * (branded ? 0.52 : 0.78), s = Math.min(maxW / bw, maxH / bh);
+        var dw = bw * s, dh = bh * s, dx = (W - dw) / 2, dy = branded ? H * 0.88 - dh : (H - dh) / 2 + H * 0.02;
+        // contact shadow
+        o.save(); o.fillStyle = 'rgba(0,0,0,' + (branded ? 0.6 : 0.22) + ')'; o.filter = 'blur(18px)';
+        o.beginPath(); o.ellipse(W / 2, dy + dh - 4, dw * 0.47, Math.max(14, dh * 0.035), 0, 0, Math.PI * 2); o.fill(); o.restore();
+        // soft drop shadow from the bag itself, then the bag
+        o.save(); o.shadowColor = 'rgba(0,0,0,' + (branded ? 0.55 : 0.18) + ')'; o.shadowBlur = 40; o.shadowOffsetY = 14;
+        o.imageSmoothingQuality = 'high'; o.drawImage(cut, bx, by, bw, bh, dx, dy, dw, dh); o.restore();
+        return new Promise(function (resolve) { out.toBlob(resolve, 'image/jpeg', 0.9); });
+      });
+    });
+  }
+
+  function photoStyle() { return settings.photoStyle || 'branded'; }
+  function styleAll() {
+    var style = photoStyle();
+    $('styleRow').querySelectorAll('[data-style]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.style === style)); });
+    if (style === 'original') { renderThumbs(); setStyleMsg(''); return; }
+    state.photos.forEach(function (p) {
+      if (p.styled && p.styled.style === style) return;
+      p.busy = true;
+      styleState.queue = styleState.queue.then(function () {
+        if (state.photos.indexOf(p) < 0 || photoStyle() !== style) { p.busy = false; return; }
+        var left = state.photos.filter(function (q) { return q.busy; }).length;
+        setStyleMsg('Styling photos… ' + left + ' to go' + (styleState.session ? '' : ' (first time loads the cut-out tool, about 15 MB)'));
+        return stylePhoto(p, style).then(function (blob) {
+          if (p.styled) URL.revokeObjectURL(p.styled.url);
+          p.styled = { style: style, blob: blob, url: URL.createObjectURL(blob) }; p.failed = false;
+        }, function (e) { p.failed = true; console.warn('styling failed', e); }).then(function () {
+          p.busy = false; renderThumbs();
+          var still = state.photos.filter(function (q) { return q.busy; }).length;
+          var failed = state.photos.filter(function (q) { return q.failed; }).length;
+          setStyleMsg(still ? 'Styling photos… ' + still + ' to go' : failed ? failed + ' photo' + (failed > 1 ? 's' : '') + ' could not be styled and will use the original. A plain background behind the bag works best.' : '');
+        });
+      });
+    });
+    renderThumbs();
+  }
+  function setStyleMsg(m) { $('styleMsg').textContent = m; $('styleMsg').hidden = !m; }
+  function shownUrl(p) { return photoStyle() !== 'original' && p.styled && p.styled.style === photoStyle() ? p.styled.url : p.url; }
+  $('styleRow').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-style]'); if (!b) return;
+    settings.photoStyle = b.dataset.style; store('ls.settings', settings); styleAll();
+  });
+
+  /* ---------- download all photos as one zip ---------- */
+  var CRC = (function () { var t = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+  function crc32(u8) { var c = 0xFFFFFFFF; for (var i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+  function makeZip(files) {   // files: [{name, data: Uint8Array}] stored uncompressed (JPEGs are already compressed)
+    var parts = [], central = [], offset = 0, enc = new TextEncoder();
+    files.forEach(function (f) {
+      var name = enc.encode(f.name), crc = crc32(f.data), size = f.data.length;
+      var lh = new DataView(new ArrayBuffer(30));
+      lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(8, 0, true);
+      lh.setUint32(14, crc, true); lh.setUint32(18, size, true); lh.setUint32(22, size, true); lh.setUint16(26, name.length, true);
+      parts.push(new Uint8Array(lh.buffer), name, f.data);
+      var ch = new DataView(new ArrayBuffer(46));
+      ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true);
+      ch.setUint32(16, crc, true); ch.setUint32(20, size, true); ch.setUint32(24, size, true); ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+      central.push(new Uint8Array(ch.buffer), name);
+      offset += 30 + name.length + size;
+    });
+    var cdSize = central.reduce(function (a, b) { return a + b.length; }, 0);
+    var end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+    end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+    return new Blob(parts.concat(central, [new Uint8Array(end.buffer)]), { type: 'application/zip' });
+  }
+  var downloadsPromise = (window.claude && typeof window.claude.use === 'function')
+    ? Promise.resolve(window.claude.use('downloads')).catch(function () { return null; }) : Promise.resolve(null);
+  function photoBlob(p) {
+    if (photoStyle() !== 'original' && p.styled && p.styled.style === photoStyle()) return Promise.resolve(p.styled.blob);
+    return toJpeg(p.url);
+  }
   $('dlPhotos').addEventListener('click', function () {
     if (!state.photos.length) { toast('Add some photos first'); return; }
-    toast('Preparing ' + state.photos.length + ' photo' + (state.photos.length > 1 ? 's' : '') + '…');
-    var i = 0;
-    (function next() {
-      if (i >= state.photos.length) return;
-      var p = state.photos[i], idx = i;
-      loadImg(p.url).then(function (im) {
-        // eBay recommends 1600px on the longest side for zoom.
-        var max = 1600, w = im.naturalWidth, h = im.naturalHeight, k = Math.min(1, max / Math.max(w, h));
-        var c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
-        var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
-        x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height);
-        c.toBlob(function (blob) {
-          var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-          a.download = current.sku + '-' + String(idx + 1).padStart(2, '0') + '.jpg';
-          document.body.appendChild(a); a.click(); a.remove();
-          setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
-          i++; setTimeout(next, 350);
-        }, 'image/jpeg', 0.9);
-      }).catch(function () { i++; next(); });
-    })();
+    if (state.photos.some(function (p) { return p.busy; })) { toast('Still styling photos, try again in a moment'); return; }
+    var base = (current.sku || 'photos');
+    Promise.all(state.photos.map(function (p, i) {
+      return photoBlob(p).then(function (b) { return b.arrayBuffer(); }).then(function (buf) { return { name: base + '-' + String(i + 1).padStart(2, '0') + '.jpg', data: new Uint8Array(buf) }; });
+    })).then(function (files) {
+      var zip = makeZip(files), filename = base + '-photos.zip';
+      return downloadsPromise.then(function (dl) {
+        if (dl) return dl.save({ filename: filename, data: zip }).then(function () { toast('Photos saved'); }, function (e) { if (e && e.code !== 'declined') toast('Saving is not available here'); });
+        var a = document.createElement('a'); a.href = URL.createObjectURL(zip); a.download = filename;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+      });
+    }).catch(function () { toast('Could not prepare the photos'); });
   });
 
   /* ---------- saved listings ---------- */
   function thumbData() {
     if (!state.photos.length) return Promise.resolve('');
-    return loadImg(state.photos[0].url).then(function (im) {
+    return loadImg(shownUrl(state.photos[0])).then(function (im) {
       var c = document.createElement('canvas'); c.width = c.height = 96;
       var x = c.getContext('2d'), sz = Math.min(im.naturalWidth, im.naturalHeight);
       x.drawImage(im, (im.naturalWidth - sz) / 2, (im.naturalHeight - sz) / 2, sz, sz, 0, 0, 96, 96);
@@ -1435,6 +1661,7 @@
     });
     store('ls.settings', settings);
     updateCalcCells();
+    styleState.backdrops = {};
     applyBrand(); state.titleEdited = false; renderTiles(); generate();
   }
   function applyBrand() { $('brandName').textContent = settings.brand; document.title = settings.brand + ' · Listing Studio'; }
@@ -1460,6 +1687,7 @@
     $('detailsHint').textContent = 'Filled in from your photos. Check them before you list.';
     $('typeLbl').textContent = 'Product (read from photos)';
   });
+  $('styleRow').querySelectorAll('[data-style]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.style === photoStyle())); });
   fillTypeDefaults();
   var rc0 = settings.costs[costKey()]; if (rc0) $('buyVnd').value = rc0.toLocaleString('en-GB');
   applyBrand();
