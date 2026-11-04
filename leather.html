@@ -188,6 +188,8 @@
   @media (prefers-reduced-motion: reduce) { .ai.busy .ai-msg::before { animation: none; } }
 
   .scroll-x { overflow-x: auto; }
+  .band-wrap { max-height: 320px; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--r); }
+  .band-wrap th { position: sticky; top: 0; background: var(--surface); }
   .size-table { min-width: 470px; }
   .size-table input { width: 58px; min-width: 58px; padding-inline: .4rem; }
   .size-table td:first-child { white-space: nowrap; }
@@ -414,13 +416,15 @@
     </div>
 
     <h3>Shipping cost by weight (VND)</h3>
-    <p class="field-hint" style="margin-bottom:.5rem">Shipping uses the first band the packed weight fits in. Leave "up to" empty for any weight above the others.</p>
-    <table class="price-table" id="bandTable"></table>
+    <p class="field-hint" style="margin-bottom:.5rem">Loaded with VIO Shipping ePacket rates to the United Kingdom (from 5 Oct 2026). Shipping uses the first band the packed weight fits in. Leave "up to" empty for any weight above the others.</p>
+    <div class="scroll-x band-wrap">
+    <table class="price-table" id="bandTable"></table></div>
     <div style="margin-top:.5rem"><button class="btn small" type="button" id="addBand">Add weight band</button></div>
     <div class="grid2" style="margin-top:.8rem">
       <div class="field"><label for="setVolumetric">Charge by size when bigger</label>
         <select id="setVolumetric"><option value="no">No, actual weight only</option><option value="yes">Yes, use volumetric weight</option></select></div>
       <div class="field"><label for="setVolDiv">Volumetric divisor</label><input id="setVolDiv" type="number" min="1000" step="1000"></div>
+      <div class="field"><label for="setShipVat">VAT on shipping (%)</label><input id="setShipVat" type="number" min="0" max="30" step="1"></div>
     </div>
 
     <h3>Policies shown in every description</h3>
@@ -492,7 +496,7 @@
 
   var DEFAULTS = {
     currency: 'GBP',
-    v: 3,
+    v: 4,
     brand: 'J&L Leather Co.',
     tagline: 'Handcrafted Leather Goods',
     skuPrefix: 'JL',
@@ -523,7 +527,36 @@
     },
     buffaloWeightPct: 15,
     packKg: 0.3,
-    shipBands: [{ upTo: '', vnd: 1100000 }],
+    // VIO Shipping ePacket, United Kingdom, from 5 Oct 2026 (VND, excluding VAT).
+    shipBands: [
+      { upTo: 0.1, vnd: 120000 },
+      { upTo: 0.2, vnd: 159000 },
+      { upTo: 0.3, vnd: 198000 },
+      { upTo: 0.4, vnd: 237000 },
+      { upTo: 0.5, vnd: 276000 },
+      { upTo: 0.6, vnd: 315000 },
+      { upTo: 0.7, vnd: 353000 },
+      { upTo: 0.8, vnd: 391000 },
+      { upTo: 0.9, vnd: 430000 },
+      { upTo: 1, vnd: 467000 },
+      { upTo: 1.1, vnd: 505000 },
+      { upTo: 1.2, vnd: 542000 },
+      { upTo: 1.3, vnd: 579000 },
+      { upTo: 1.4, vnd: 616000 },
+      { upTo: 1.5, vnd: 653000 },
+      { upTo: 1.6, vnd: 689000 },
+      { upTo: 1.7, vnd: 725000 },
+      { upTo: 1.8, vnd: 761000 },
+      { upTo: 1.9, vnd: 797000 },
+      { upTo: 2, vnd: 833000 },
+      { upTo: 2.5, vnd: 1007000 },
+      { upTo: 3, vnd: 1176000 },
+      { upTo: 3.5, vnd: 1340000 },
+      { upTo: 4, vnd: 1499000 },
+      { upTo: 4.5, vnd: 1652000 },
+      { upTo: 5, vnd: 1799000 }
+    ],
+    shipVatPct: 0,
     volumetric: false,
     volDivisor: 5000,
     targetMargin: 30,
@@ -565,6 +598,12 @@
     // v3: shipping comes from weight bands; start with the old flat cost for every weight.
     settings.shipBands = [{ upTo: '', vnd: settings.shipVnd || DEFAULTS.shipVnd }];
     settings.v = 3;
+  }
+  if ((storedSettings.v || 1) < 4) {
+    // v4: load the VIO ePacket UK rate card unless the bands were already filled in by hand.
+    var sb = settings.shipBands;
+    if (!Array.isArray(sb) || sb.length <= 1) settings.shipBands = clone(DEFAULTS.shipBands);
+    settings.v = 4;
   }
   settings.sizes = settings.sizes || {};
   Object.keys(DEFAULTS.sizes).forEach(function (t) {
@@ -621,13 +660,14 @@
     var s = sz(type, size, material);
     var actual = s.kg + (Number(settings.packKg) || 0);
     var vol = settings.volumetric ? (s.w * s.h * s.d) / (Number(settings.volDivisor) || 5000) : 0;
-    var charge = Math.max(actual, vol);
+    var charge = Math.round(Math.max(actual, vol) * 1000) / 1000;   // avoid 1.1 + 0.3 = 1.4000000001 slipping into the next band
     var bands = settings.shipBands.map(function (b) { return { upTo: b.upTo === '' || b.upTo == null ? Infinity : Number(b.upTo), vnd: Number(b.vnd) || 0 }; })
       .sort(function (a, b) { return a.upTo - b.upTo; });
     var band = bands.filter(function (b) { return charge <= b.upTo; })[0];
     var over = !band;
     if (over) band = bands[bands.length - 1];
-    return { kg: Math.round(charge * 100) / 100, actual: Math.round(actual * 100) / 100, byVolume: vol > actual, vnd: band ? band.vnd : 0,
+    var cost = band ? band.vnd * (1 + (Number(settings.shipVatPct) || 0) / 100) : 0;
+    return { kg: Math.round(charge * 100) / 100, actual: Math.round(actual * 100) / 100, byVolume: vol > actual, vnd: Math.round(cost),
       band: band && band.upTo !== Infinity ? 'up to ' + band.upTo + ' kg' : 'any weight', over: over };
   }
 
@@ -1223,6 +1263,7 @@
     $('setPackKg').value = settings.packKg;
     $('setVolumetric').value = settings.volumetric ? 'yes' : 'no';
     $('setVolDiv').value = settings.volDivisor;
+    $('setShipVat').value = settings.shipVatPct || 0;
     var st = '<tr><th>Bag</th><th>W</th><th>H</th><th>D</th><th>Litres</th><th>kg</th><th>Laptop"</th></tr>';
     Object.keys(TYPES).forEach(function (t) {
       Object.keys(TYPES[t].sizes).forEach(function (s) {
@@ -1273,6 +1314,7 @@
     settings.packKg = Number($('setPackKg').value) || 0;
     settings.volumetric = $('setVolumetric').value === 'yes';
     settings.volDivisor = Number($('setVolDiv').value) || 5000;
+    settings.shipVatPct = Number($('setShipVat').value) || 0;
     document.querySelectorAll('[data-st]').forEach(function (i) {
       var v = i.value === '' ? (i.dataset.sk === 'laptop' || i.dataset.sk === 'cap' ? '' : 0) : Number(i.value);
       settings.sizes[i.dataset.st][i.dataset.ss][i.dataset.sk] = v;
