@@ -179,6 +179,14 @@
   .target { font-size: .85rem; color: var(--muted); margin-top: .5rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
   .target b { color: var(--ink); }
 
+  .ai { margin-top: .9rem; padding: .7rem .85rem; border-radius: var(--r); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line)); font-size: .86rem; display: flex; gap: .6rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .ai-msg { min-width: 0; flex: 1 1 220px; }
+  .ai-actions { display: flex; gap: .35rem; }
+  .ai.busy .ai-msg::before { content: ""; display: inline-block; width: .7em; height: .7em; margin-right: .5em; border-radius: 50%; border: 2px solid var(--accent); border-right-color: transparent; animation: spin .8s linear infinite; vertical-align: -1px; }
+  .ai.err { background: color-mix(in srgb, var(--bad) 8%, var(--surface)); border-color: color-mix(in srgb, var(--bad) 30%, var(--line)); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .ai.busy .ai-msg::before { animation: none; } }
+
   /* saved */
   .saved-list li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: .75rem; align-items: center; padding: .6rem 0; border-bottom: 1px solid var(--line); }
   .saved-list li:last-child { border-bottom: 0; }
@@ -225,7 +233,7 @@
     <div class="card">
       <span class="step">Step 1</span>
       <h2>Photos</h2>
-      <p class="hint">Add up to 24 photos. The first one becomes your eBay gallery (main) photo.</p>
+      <p class="hint" id="photosHint">Add up to 24 photos. The first one becomes your eBay gallery (main) photo.</p>
       <div class="drop" id="drop" tabindex="0" role="button" aria-label="Add photos">
         <strong>Tap to add photos</strong>
         or drag &amp; drop them here
@@ -233,31 +241,38 @@
       <input type="file" id="fileInput" accept="image/*" multiple hidden>
       <div class="thumbs" id="thumbs"></div>
       <div class="suggest" id="colorSuggest" hidden></div>
+      <div class="ai" id="aiBox" hidden>
+        <p class="ai-msg" id="aiMsg"></p>
+        <div class="ai-actions">
+          <button class="btn small" type="button" id="aiRetry" hidden>Read photos again</button>
+          <button class="btn small ghost" type="button" id="aiStop" hidden>Stop</button>
+        </div>
+      </div>
     </div>
 
     <div class="card">
       <span class="step">Step 2</span>
-      <h2>Product</h2>
-      <p class="hint">Pick the product, size and hide. The price updates automatically.</p>
+      <h2>Material &amp; size</h2>
+      <p class="hint">Choose the hide and the size. The price updates automatically.</p>
 
       <div class="group">
-        <span class="lbl">Product</span>
-        <div class="tiles" id="typeTiles"></div>
+        <span class="lbl">Material</span>
+        <div class="tiles" id="materialTiles"></div>
       </div>
       <div class="group">
         <span class="lbl">Size</span>
         <div class="tiles sizes" id="sizeTiles"></div>
       </div>
       <div class="group">
-        <span class="lbl">Material</span>
-        <div class="tiles" id="materialTiles"></div>
+        <span class="lbl" id="typeLbl">Product</span>
+        <div class="tiles" id="typeTiles"></div>
       </div>
     </div>
 
     <div class="card">
       <span class="step">Step 3</span>
       <h2>Details</h2>
-      <p class="hint">These fill the item specifics and description.</p>
+      <p class="hint" id="detailsHint">These fill the item specifics and description.</p>
       <div class="grid2">
         <div class="field"><label for="grain">Grain</label>
           <select id="grain"><option>Full Grain</option><option>Top Grain</option></select></div>
@@ -279,7 +294,11 @@
       <div class="field" style="margin-top:.8rem"><label for="buyVnd">Buy price (VND)</label>
         <input id="buyVnd" type="text" inputmode="numeric" placeholder="e.g. 1,850,000" autocomplete="off">
         <div class="field-hint" id="buyHint"></div></div>
-      <div class="field" style="margin-top:.8rem"><label for="notes">Extra notes (optional)</label>
+      <div class="field" style="margin-top:.8rem"><label for="closure">Closure</label>
+        <input id="closure" type="text" autocomplete="off"></div>
+      <div class="field" style="margin-top:.8rem"><label for="features">Features (one per line)</label>
+        <textarea id="features" rows="5"></textarea></div>
+      <div class="field" style="margin-top:.8rem"><label for="notes">Description (optional)</label>
         <textarea id="notes" placeholder="e.g. Hand-stitched with waxed thread, detachable shoulder strap, shoe compartment…"></textarea></div>
     </div>
 
@@ -372,14 +391,14 @@
       <div class="field"><label for="setVatRate">VAT rate (%)</label><input id="setVatRate" type="number" min="0" max="50" step="1"></div>
       <div class="field"><label for="setVatMode">How eBay takes VAT</label>
         <select id="setVatMode">
-          <option value="inclusive">Included in the price (price ÷ 1.2)</option>
           <option value="flat">Flat % off the price (price × 0.8)</option>
+          <option value="inclusive">Included in the price (price ÷ 1.2)</option>
         </select></div>
       <div class="field"><label for="setFeePct">eBay fee (% of sale)</label><input id="setFeePct" type="number" min="0" step="0.1"></div>
       <div class="field"><label for="setFeeFixed">eBay fee per order (£)</label><input id="setFeeFixed" type="number" min="0" step="0.01"></div>
-      <div class="field"><label for="setShipCost">Your shipping cost per bag (£)</label><input id="setShipCost" type="number" min="0" step="0.01"></div>
+      <div class="field"><label for="setShipVnd">Your shipping cost per bag (VND)</label><input id="setShipVnd" type="text" inputmode="numeric"></div>
     </div>
-    <p class="field-hint" style="margin-top:.5rem">Check the exchange rate before you list. Fees and shipping are optional; leave them at 0 to count VAT only.</p>
+    <p class="field-hint" style="margin-top:.5rem">Check the exchange rate before you list. eBay fees are optional; leave them at 0 to count VAT only.</p>
 
     <h3>Policies shown in every description</h3>
     <div class="field"><label for="setShipping">Shipping</label><textarea id="setShipping"></textarea></div>
@@ -450,6 +469,7 @@
 
   var DEFAULTS = {
     currency: 'GBP',
+    v: 2,
     brand: 'J&L Leather Co.',
     tagline: 'Handcrafted Leather Goods',
     skuPrefix: 'JL',
@@ -460,10 +480,10 @@
     buffaloAdd: { duffle: 25, backpack: 15 },
     vndPerGbp: 34000,
     vatRate: 20,
-    vatMode: 'inclusive',
+    vatMode: 'flat',
     feePct: 0,
     feeFixed: 0,
-    shipCost: 0,
+    shipVnd: 1100000,
     targetMargin: 30,
     costs: {},
     shipping: 'Ships within 2 business days, carefully packed in a protective dust bag. Tracking provided on every order.',
@@ -492,9 +512,22 @@
   settings.prices = Object.assign(clone(DEFAULTS.prices), settings.prices || {});
   settings.buffaloAdd = Object.assign(clone(DEFAULTS.buffaloAdd), settings.buffaloAdd || {});
   settings.costs = settings.costs || {};
+  if ((storedSettings.v || 1) < 2) {
+    // v2: eBay takes a flat 20%; shipping is entered in VND.
+    settings.vatMode = 'flat';
+    settings.shipVnd = DEFAULTS.shipVnd;
+    delete settings.shipCost;
+    settings.v = 2;
+  }
   var saved = load('ls.saved', []);
 
-  var state = { type: 'duffle', size: 'M', material: 'cow', photos: [], editingId: null, titleEdited: false };
+  var state = { type: 'duffle', size: 'M', material: 'cow', photos: [], editingId: null, titleEdited: false, detailsSource: 'default' };
+  function defaultClosure(type) { return type === 'duffle' ? 'Full-length zip' : 'Buckle flap with magnetic catch'; }
+  function fillTypeDefaults() {
+    $('features').value = TYPES[state.type].features.join('\n');
+    $('closure').value = defaultClosure(state.type);
+    state.detailsSource = 'default';
+  }
   var current = {};
 
   var $ = function (id) { return document.getElementById(id); };
@@ -521,7 +554,7 @@
     var r = (Number(settings.vatRate) || 0) / 100;
     var keep = settings.vatMode === 'flat' ? 1 - r : 1 / (1 + r);   // share of price left after VAT
     var vat = price * (1 - keep);
-    var f = (Number(settings.feePct) || 0) / 100, fixed = Number(settings.feeFixed) || 0, ship = Number(settings.shipCost) || 0;
+    var f = (Number(settings.feePct) || 0) / 100, fixed = Number(settings.feeFixed) || 0, ship = (Number(settings.shipVnd) || 0) / (Number(settings.vndPerGbp) || 1);
     var fees = price * f + fixed;
     var cost = buyVnd > 0 ? buyVnd / (Number(settings.vndPerGbp) || 1) : 0;
     var profit = price - vat - fees - ship - cost;
@@ -564,6 +597,7 @@
       state.titleEdited = false;
       var remembered = settings.costs[costKey()];
       $('buyVnd').value = remembered ? remembered.toLocaleString('en-GB') : '';
+      if (n === 'type' && state.detailsSource === 'default') fillTypeDefaults();
       renderTiles();
       generate();
     }
@@ -585,7 +619,7 @@
       state.photos.push({ file: f, url: URL.createObjectURL(f) });
     });
     renderThumbs();
-    if (files.length) detectColor();
+    if (files.length) readPhotos();
   }
   function renderThumbs() {
     $('thumbs').innerHTML = state.photos.map(function (p, i) {
@@ -605,11 +639,123 @@
     if (act === 'left' && i > 0) a.splice(i - 1, 0, a.splice(i, 1)[0]);
     if (act === 'right' && i < a.length - 1) a.splice(i + 1, 0, a.splice(i, 1)[0]);
     renderThumbs();
-    if (i === 0 || act !== 'del') detectColor();
+    if (!state.photos.length) { $('aiBox').hidden = true; $('colorSuggest').hidden = true; }
+    else if (aiOff || $('aiBox').hidden) detectColor();
   });
 
   function loadImg(url) {
     return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = url; });
+  }
+
+  /* ---------- read details from photos with Claude (when the page runs in Claude) ---------- */
+  var samplePromise = (window.claude && typeof window.claude.use === 'function')
+    ? Promise.resolve(window.claude.use('sample')).catch(function () { return null; })
+    : Promise.resolve(null);
+  var aiCtl = null, aiOff = false;
+
+  function showAi(kind, msg, retry) {
+    var box = $('aiBox');
+    box.hidden = false;
+    box.className = 'ai' + (kind ? ' ' + kind : '');
+    $('aiMsg').textContent = msg;
+    $('aiRetry').hidden = !retry;
+    $('aiStop').hidden = kind !== 'busy';
+  }
+  $('aiRetry').addEventListener('click', function () { readPhotos(); });
+  $('aiStop').addEventListener('click', function () { if (aiCtl) aiCtl.abort(); });
+
+  function toJpeg(url) {
+    return loadImg(url).then(function (im) {
+      var max = 1568, w = im.naturalWidth, hh = im.naturalHeight, k = Math.min(1, max / Math.max(w, hh));
+      var c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(hh * k);
+      var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+      return new Promise(function (res) { c.toBlob(res, 'image/jpeg', 0.85); });
+    }).catch(function () { return null; });
+  }
+  function optionsOf(id) { return Array.prototype.map.call($(id).options, function (o) { return o.value; }); }
+  function pick(id, v) {
+    if (typeof v !== 'string') return false;
+    var opts = optionsOf(id), hit = opts.filter(function (o) { return o.toLowerCase() === v.trim().toLowerCase(); })[0];
+    if (hit) { $(id).value = hit; return true; }
+    return false;
+  }
+
+  function readPhotos() {
+    if (!state.photos.length) return;
+    samplePromise.then(function (sample) {
+      if (!sample || aiOff) { detectColor(); return; }
+      return sample.limits().catch(function () { return null; }).then(function (lim) {
+        if (!lim || !lim.images) { detectColor(); return; }
+        var n = Math.max(1, Math.min(lim.images.maxCount || 4, 6));
+        if (aiCtl) aiCtl.abort();
+        var ctl = aiCtl = new AbortController();
+        showAi('busy', 'Reading your photos…');
+        $('colorSuggest').hidden = true;
+        return Promise.all(state.photos.slice(0, n).map(function (p) { return toJpeg(p.url); })).then(function (blobs) {
+          blobs = blobs.filter(Boolean);
+          if (ctl.signal.aborted) return;
+          if (!blobs.length) { showAi('err', 'These photos could not be read. Try JPEG or PNG files.', false); return; }
+          var prompt = [
+            'You are helping a small leather goods business write an eBay listing.',
+            'The ' + blobs.length + ' photo(s) show ONE handmade leather bag from different angles.',
+            'The seller has already chosen the hide (' + MATERIALS[state.material].label + ') and the size (' + TYPES[state.type].sizes[state.size].label + '), so do not judge those.',
+            'Describe only what you can actually see. Reply with only a JSON object, no other text:',
+            '{',
+            '  "type": "duffle" or "backpack",',
+            '  "color": one of ' + JSON.stringify(optionsOf('color')) + ',',
+            '  "finish": one of ' + JSON.stringify(optionsOf('finish')) + ',',
+            '  "hardware": one of ' + JSON.stringify(optionsOf('hardware')) + ',',
+            '  "lining": one of ' + JSON.stringify(optionsOf('lining')) + ',',
+            '  "closure": short phrase, e.g. "Full-length zip",',
+            '  "features": 3 to 7 short features visible in the photos, e.g. "Detachable padded shoulder strap",',
+            '  "description": 2 plain sentences describing the look and character of this bag for buyers, no hype, no sizes or prices,',
+            '  "unsure": list of the field names above you could not see clearly',
+            '}',
+            'If the lining is not visible, use "Heavy Cotton Canvas" and add "lining" to unsure.'
+          ].join('\n');
+          return sample.json(prompt, { images: blobs, signal: ctl.signal }).then(function (res) {
+            if (ctl.signal.aborted) return;
+            applyPhotoDetails(res);
+          }, function (e) {
+            var code = e && e.code;
+            if (code === 'cancelled') { if (aiCtl === ctl) showAi('', 'Stopped. Your details were not changed.', true); return; }
+            if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed', 'images_unavailable'].indexOf(code) >= 0) {
+              aiOff = true; $('aiBox').hidden = true; detectColor(); return;
+            }
+            var msg = code === 'rate_limited' ? 'Claude is busy or your usage limit is reached. Try again in a few minutes.'
+              : code === 'image_rejected' ? 'One of the photos could not be read. Remove it and try again.'
+              : code === 'session_expired' ? 'Sign in to Claude again, then try again.'
+              : 'The photos could not be read this time. Try again.';
+            showAi('err', msg, true);
+          });
+        });
+      });
+    });
+  }
+
+  function applyPhotoDetails(r) {
+    if (!r || typeof r !== 'object') { showAi('err', 'The photos could not be read this time. Try again.', true); return; }
+    var filled = [];
+    if ((r.type === 'duffle' || r.type === 'backpack') && r.type !== state.type) {
+      state.type = r.type;
+      if (!TYPES[state.type].sizes[state.size]) state.size = 'M';
+      var rem = settings.costs[costKey()];
+      $('buyVnd').value = rem ? rem.toLocaleString('en-GB') : '';
+    }
+    if (r.type === 'duffle' || r.type === 'backpack') filled.push('product');
+    [['color', 'colour'], ['finish', 'finish'], ['hardware', 'hardware'], ['lining', 'lining']].forEach(function (f) {
+      if (pick(f[0], r[f[0]])) filled.push(f[1]);
+    });
+    if (typeof r.closure === 'string' && r.closure.trim()) { $('closure').value = r.closure.trim().slice(0, 60); filled.push('closure'); }
+    var feats = Array.isArray(r.features) ? r.features.filter(function (x) { return typeof x === 'string' && x.trim(); }).slice(0, 8).map(function (x) { return x.trim().slice(0, 90); }) : [];
+    if (feats.length) { $('features').value = feats.join('\n'); filled.push('features'); }
+    if (typeof r.description === 'string' && r.description.trim() && !$('notes').value.trim()) { $('notes').value = r.description.trim().slice(0, 500); filled.push('description'); }
+    state.detailsSource = 'photos';
+    state.titleEdited = false;
+    renderTiles(); generate();
+    var unsure = Array.isArray(r.unsure) ? r.unsure.filter(function (x) { return typeof x === 'string'; }).map(function (x) { return x === 'color' ? 'colour' : x; }) : [];
+    showAi('', 'Filled in from your photos: ' + (filled.join(', ') || 'nothing') + '.' +
+      (unsure.length ? ' Check: ' + unsure.slice(0, 5).join(', ') + ' (not clear in the photos).' : ' Check the details below before you list.'), true);
   }
 
   /* Suggest a leather colour from the centre of the main photo */
@@ -644,7 +790,7 @@
   }
 
   /* ---------- generator ---------- */
-  var FIELDS = ['grain', 'finish', 'color', 'hardware', 'lining', 'condition', 'qty', 'priceOverride', 'buyVnd', 'notes'];
+  var FIELDS = ['grain', 'finish', 'color', 'hardware', 'lining', 'condition', 'qty', 'priceOverride', 'buyVnd', 'closure', 'features', 'notes'];
   FIELDS.forEach(function (f) {
     $(f).addEventListener('input', function () {
       if (f === 'buyVnd') {
@@ -652,7 +798,8 @@
         if (v) settings.costs[costKey()] = v; else delete settings.costs[costKey()];
         store('ls.settings', settings);
       }
-      if (f !== 'qty' && f !== 'priceOverride' && f !== 'notes' && f !== 'buyVnd') state.titleEdited = false;
+      if (f === 'features' || f === 'closure') state.detailsSource = 'user';
+      if (['qty', 'priceOverride', 'notes', 'buyVnd', 'features', 'closure'].indexOf(f) < 0) state.titleEdited = false;
       generate();
     });
   });
@@ -715,7 +862,7 @@
       ['Size', s.label + ' (' + s.inch + ')'],
       ['Dimensions', s.dims + ' (' + s.cm + ')'],
       ['Capacity', s.cap],
-      ['Closure', t === TYPES.duffle ? 'Zip' : 'Buckle & Magnetic Flap'],
+      ['Closure', o.closure.trim() || defaultClosure(state.type)],
       ['Handmade', 'Yes'],
       ['Condition', o.condition]
     ];
@@ -725,7 +872,8 @@
 
   function buildDescription(title, t, s, m, o) {
     var accent = '#7A4424', ink = '#2A1F17', muted = '#75665A', line = '#E4D9C8', cream = '#FAF6EF';
-    var features = t.features.slice();
+    var features = o.features.split('\n').map(function (x) { return x.replace(/^[\s•*-]+/, '').trim(); }).filter(Boolean);
+    if (!features.length) features = t.features.slice();
     if (o.lining !== 'Unlined') features.push(o.lining + ' interior lining');
     features.push(o.hardware + ' hardware throughout');
     var notes = o.notes.trim()
@@ -811,9 +959,9 @@
     $('buyHint').textContent = buy ? '≈ ' + money(p.cost) + ' at ' + vnd(settings.vndPerGbp) + ' per £1' : 'Saved for this product, size and hide';
     var row = function (k, v, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + k + '</th><td>' + v + '</td></tr>'; };
     var html = row('Sale price', money(price)) +
-      row('VAT ' + vr + '%', money(-p.vat));
+      row((settings.vatMode === 'flat' ? 'eBay VAT ' : 'VAT ') + vr + '%', money(-p.vat));
     if (p.fees) html += row('eBay fees', money(-p.fees));
-    if (p.ship) html += row('Shipping', money(-p.ship));
+    if (p.ship) html += row('Shipping', money(-p.ship) + ' <span class="muted">(' + vnd(settings.shipVnd) + ')</span>');
     if (buy) {
       html += row('Buy price', money(-p.cost) + ' <span class="muted">(' + vnd(buy) + ')</span>');
       html += row('Profit', money(p.profit) + ' <span class="pill ' + (p.profit <= 0 ? 'bad' : p.margin * 100 < (Number(settings.targetMargin) || 0) ? 'warn' : 'good') + '">' + (p.margin * 100).toFixed(1) + '% margin</span>', 'total');
@@ -936,6 +1084,7 @@
       state.type = r.type; state.size = r.size; state.material = r.material; state.editingId = r.id;
       current.sku = r.sku;
       FIELDS.forEach(function (f) { if (r.opts && f in r.opts) $(f).value = r.opts[f]; });
+      if (!r.opts || !r.opts.features) fillTypeDefaults(); else state.detailsSource = 'saved';
       state.titleEdited = !!r.titleEdited;
       if (state.titleEdited) $('outTitle').value = r.title;
       renderTiles(); generate();
@@ -962,6 +1111,7 @@
     state.photos = []; state.editingId = null; state.titleEdited = false;
     $('notes').value = ''; $('priceOverride').value = ''; $('qty').value = 1;
     var rc = settings.costs[costKey()]; $('buyVnd').value = rc ? rc.toLocaleString('en-GB') : '';
+    fillTypeDefaults(); if (aiCtl) aiCtl.abort(); $('aiBox').hidden = true;
     renderThumbs(); $('colorSuggest').hidden = true; generate();
     toast('Ready for a new listing');
   });
@@ -982,7 +1132,7 @@
     $('setVatMode').value = settings.vatMode;
     $('setFeePct').value = settings.feePct;
     $('setFeeFixed').value = settings.feeFixed;
-    $('setShipCost').value = settings.shipCost;
+    $('setShipVnd').value = Number(settings.shipVnd || 0).toLocaleString('en-GB');
     $('nameIdeas').innerHTML = NAME_IDEAS.map(function (n) { return '<button class="btn small" type="button" data-name="' + esc(n) + '">' + esc(n) + '</button>'; }).join('');
     var html = '<tr><th>Product</th><th>Size</th><th>Cowhide price</th><th>Buffalo price</th></tr>';
     Object.keys(TYPES).forEach(function (t) {
@@ -1008,7 +1158,7 @@
     settings.vatMode = $('setVatMode').value;
     settings.feePct = Number($('setFeePct').value) || 0;
     settings.feeFixed = Number($('setFeeFixed').value) || 0;
-    settings.shipCost = Number($('setShipCost').value) || 0;
+    settings.shipVnd = parseVnd($('setShipVnd').value);
     document.querySelectorAll('[data-pt]').forEach(function (i) { settings.prices[i.dataset.pt][i.dataset.ps] = Number(i.value) || 0; });
     document.querySelectorAll('.bufp').forEach(function (td) { td.textContent = money(priceFor(td.dataset.bt, td.dataset.bs, 'buffalo')); });
     store('ls.settings', settings);
@@ -1028,6 +1178,13 @@
   });
 
   /* ---------- init ---------- */
+  samplePromise.then(function (s) {
+    if (!s) return;
+    $('photosHint').textContent = 'Add your photos and Claude fills in the product, colour, finish, hardware and features. The first photo is your main eBay photo.';
+    $('detailsHint').textContent = 'Filled in from your photos. Check them before you list.';
+    $('typeLbl').textContent = 'Product (read from photos)';
+  });
+  fillTypeDefaults();
   var rc0 = settings.costs[costKey()]; if (rc0) $('buyVnd').value = rc0.toLocaleString('en-GB');
   applyBrand();
   renderTiles();
