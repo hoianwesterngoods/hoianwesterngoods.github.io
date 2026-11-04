@@ -414,10 +414,16 @@
           <option value="flat">Flat % off the price (price × 0.8)</option>
           <option value="inclusive">Included in the price (price ÷ 1.2)</option>
         </select></div>
-      <div class="field"><label for="setFeePct">eBay fee (% of sale)</label><input id="setFeePct" type="number" min="0" step="0.1"></div>
-      <div class="field"><label for="setFeeFixed">eBay fee per order (£)</label><input id="setFeeFixed" type="number" min="0" step="0.01"></div>
     </div>
-    <p class="field-hint" style="margin-top:.5rem">Check the exchange rate before you list. eBay fees are optional; leave them at 0 to count VAT only.</p>
+    <p class="field-hint" style="margin-top:.5rem">Check the exchange rate before you list.</p>
+    <h3>eBay Buyer Protection fee (paid by the buyer)</h3>
+    <div class="grid2">
+      <div class="field"><label for="bpFixed">Fixed fee (£)</label><input id="bpFixed" type="number" min="0" step="0.01"></div>
+      <div class="field"><label for="bpT1">% of price up to £300</label><input id="bpT1" type="number" min="0" step="0.1"></div>
+      <div class="field"><label for="bpT2">% of price £300 to £4,000</label><input id="bpT2" type="number" min="0" step="0.1"></div>
+      <div class="field"><label for="bpT3">% of price over £4,000</label><input id="bpT3" type="number" min="0" step="0.1"></div>
+    </div>
+    <p class="field-hint" style="margin-top:.5rem">Charged on the item price, not postage. It is added to what the buyer pays and does not come off your profit. Check eBay's current rates.</p>
 
     <h3>Sizes (cm) and weights</h3>
     <p class="field-hint" style="margin-bottom:.5rem">Enter width x height x depth in cm. Litres and weight are worked out from these (weight shown for cowhide / buffalo with canvas lining).</p>
@@ -533,6 +539,7 @@
     vatMode: 'flat',
     feePct: 0,
     feeFixed: 0,
+    bp: { fixed: 0.10, t1: 7, t2: 4, t3: 2 },
     shipVnd: 1100000,
     // Sizes in cm: w = width/length, h = height, d = depth; kg = cowhide weight.
     sizes: {
@@ -635,7 +642,8 @@
     if (!Array.isArray(sb) || sb.length <= 1) settings.shipBands = clone(DEFAULTS.shipBands);
     settings.v = 4;
   }
-  ['thicknessMm', 'extraPct', 'hardwareKg', 'liningKgM2'].forEach(function (k) { settings[k] = Object.assign(clone(DEFAULTS[k]), settings[k] || {}); });
+  settings.feePct = 0; settings.feeFixed = 0;   // the only eBay fee is Buyer Protection, paid by the buyer
+  ['thicknessMm', 'extraPct', 'hardwareKg', 'liningKgM2', 'bp'].forEach(function (k) { settings[k] = Object.assign(clone(DEFAULTS[k]), settings[k] || {}); });
   settings.sizes = settings.sizes || {};
   Object.keys(DEFAULTS.sizes).forEach(function (t) {
     settings.sizes[t] = settings.sizes[t] || {};
@@ -712,6 +720,14 @@
       band: band && band.upTo !== Infinity ? 'up to ' + band.upTo + ' kg' : 'any weight', over: over };
   }
 
+  /* eBay Buyer Protection fee on the item price (tiered), paid by the buyer. */
+  function buyerProtection(price) {
+    if (!(price > 0)) return 0;
+    var b = settings.bp, a = Math.min(price, 300), m = Math.max(0, Math.min(price, 4000) - 300), top = Math.max(0, price - 4000);
+    var fee = (Number(b.fixed) || 0) + a * (Number(b.t1) || 0) / 100 + m * (Number(b.t2) || 0) / 100 + top * (Number(b.t3) || 0) / 100;
+    return Math.round(fee * 100) / 100;
+  }
+
   /* Profit after VAT, eBay fees, shipping and buy cost (converted from VND). */
   function profitFor(price, buyVnd, type, size, material, lining) {
     var sh = shippingFor(type || state.type, size || state.size, material || state.material, lining);
@@ -725,7 +741,7 @@
     var profit = price - vat - fees - cost;   // the buyer pays postage, so it is not taken off profit
     var m = (Number(settings.targetMargin) || 0) / 100, denom = keep - f - m;
     var target = denom > 0 ? Math.ceil((cost + fixed) / denom) : null;
-    return { shipInfo: sh, vat: vat, fees: fees, ship: ship, cost: cost, profit: profit, margin: price > 0 ? profit / price : 0, target: target, net: price - vat };
+    return { bpFee: buyerProtection(price), shipInfo: sh, vat: vat, fees: fees, ship: ship, cost: cost, profit: profit, margin: price > 0 ? profit / price : 0, target: target, net: price - vat };
   }
 
   /* ---------- tiles ---------- */
@@ -1162,7 +1178,6 @@
     var row = function (k, v, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + k + '</th><td>' + v + '</td></tr>'; };
     var html = row('Sale price', money(price)) +
       row((settings.vatMode === 'flat' ? 'eBay VAT ' : 'VAT ') + vr + '%', money(-p.vat));
-    if (p.fees) html += row('eBay fees', money(-p.fees));
     if (buy) {
       html += row('Buy price', money(-p.cost) + ' <span class="muted">(' + vnd(buy) + ')</span>');
       html += row('Profit', money(p.profit) + ' <span class="pill ' + (p.profit <= 0 ? 'bad' : p.margin * 100 < (Number(settings.targetMargin) || 0) ? 'warn' : 'good') + '">' + (p.margin * 100).toFixed(1) + '% margin</span>', 'total');
@@ -1173,8 +1188,9 @@
     html += '<tr class="gap"><td colspan="2"></td></tr>' +
       row('Postage, paid by buyer <span class="muted">(' + si.kg + ' kg' + (si.byVolume ? ' by size' : '') + ', ' + si.band + ')</span>',
         money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>' + (si.over ? ' <span class="pill warn">over your top band</span>' : '')) +
-      row('Buyer pays in total', money(price + p.ship), 'total');
-    current.postage = p.ship;
+      row('Buyer Protection fee, paid by buyer', money(p.bpFee)) +
+      row('Buyer pays in total', money(price + p.ship + p.bpFee), 'total');
+    current.postage = p.ship; current.bpFee = p.bpFee;
     if (!price) html = row('Postage, paid by buyer <span class="muted">(' + si.kg + ' kg, ' + si.band + ')</span>', money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>');
     $('outProfit').innerHTML = html;
     var tgt = $('outTarget');
@@ -1311,11 +1327,11 @@
   });
   $('exportCsv').addEventListener('click', function () {
     if (!saved.length) { toast('Nothing saved yet'); return; }
-    var cols = ['SKU', 'Title', 'Price (GBP)', 'Postage (GBP)', 'Buy price (VND)', 'Buy price (GBP)', 'Profit (GBP)', 'Margin %', 'Quantity', 'Condition', 'Product', 'Size', 'Material', 'Colour', 'Finish', 'Description HTML'];
+    var cols = ['SKU', 'Title', 'Price (GBP)', 'Postage (GBP)', 'Buyer Protection (GBP)', 'Buyer pays (GBP)', 'Buy price (VND)', 'Buy price (GBP)', 'Profit (GBP)', 'Margin %', 'Quantity', 'Condition', 'Product', 'Size', 'Material', 'Colour', 'Finish', 'Description HTML'];
     var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
     var lines = [cols.join(',')].concat(saved.map(function (r) {
       var pf = profitFor(r.price, r.buyVnd || 0, r.type, r.size, r.material, r.opts && r.opts.lining);
-      return [r.sku, r.title, r.price, pf.ship.toFixed(2), r.buyVnd || '', r.buyVnd ? pf.cost.toFixed(2) : '', r.buyVnd ? pf.profit.toFixed(2) : '', r.buyVnd ? (pf.margin * 100).toFixed(1) : '', r.qty, r.opts.condition, TYPES[r.type].label, TYPES[r.type].sizes[r.size].label,
+      return [r.sku, r.title, r.price, pf.ship.toFixed(2), pf.bpFee.toFixed(2), (r.price + pf.ship + pf.bpFee).toFixed(2), r.buyVnd || '', r.buyVnd ? pf.cost.toFixed(2) : '', r.buyVnd ? pf.profit.toFixed(2) : '', r.buyVnd ? (pf.margin * 100).toFixed(1) : '', r.qty, r.opts.condition, TYPES[r.type].label, TYPES[r.type].sizes[r.size].label,
         MATERIALS[r.material].label, r.opts.color, r.opts.finish, r.html].map(q).join(',');
     }));
     var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' });
@@ -1346,8 +1362,7 @@
     $('setTarget').value = settings.targetMargin;
     $('setVatRate').value = settings.vatRate;
     $('setVatMode').value = settings.vatMode;
-    $('setFeePct').value = settings.feePct;
-    $('setFeeFixed').value = settings.feeFixed;
+    $('bpFixed').value = settings.bp.fixed; $('bpT1').value = settings.bp.t1; $('bpT2').value = settings.bp.t2; $('bpT3').value = settings.bp.t3;
     $('setThCow').value = settings.thicknessMm.cow; $('setThBuf').value = settings.thicknessMm.buffalo;
     $('setExDuf').value = settings.extraPct.duffle; $('setExBpk').value = settings.extraPct.backpack;
     $('setHwDuf').value = settings.hardwareKg.duffle; $('setHwBpk').value = settings.hardwareKg.backpack;
@@ -1399,8 +1414,8 @@
     settings.targetMargin = Number($('setTarget').value) || 0;
     settings.vatRate = $('setVatRate').value === '' ? DEFAULTS.vatRate : Number($('setVatRate').value) || 0;
     settings.vatMode = $('setVatMode').value;
-    settings.feePct = Number($('setFeePct').value) || 0;
-    settings.feeFixed = Number($('setFeeFixed').value) || 0;
+    settings.bp.fixed = Number($('bpFixed').value) || 0; settings.bp.t1 = Number($('bpT1').value) || 0;
+    settings.bp.t2 = Number($('bpT2').value) || 0; settings.bp.t3 = Number($('bpT3').value) || 0;
     settings.thicknessMm.cow = Number($('setThCow').value) || 0; settings.thicknessMm.buffalo = Number($('setThBuf').value) || 0;
     settings.extraPct.duffle = Number($('setExDuf').value) || 0; settings.extraPct.backpack = Number($('setExBpk').value) || 0;
     settings.hardwareKg.duffle = Number($('setHwDuf').value) || 0; settings.hardwareKg.backpack = Number($('setHwBpk').value) || 0;
