@@ -1256,6 +1256,7 @@
 
   /* ---------- photo styling: cut the bag out and place it on a branded backdrop ---------- */
   var ORT_SRC = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.3/dist/ort.wasm.min.js';
+  var MODEL_URL = 'vendor/u2netp.onnx';
   var styleState = { session: null, loading: null, queue: Promise.resolve(), backdrops: {} };
 
   function loadScript(src) {
@@ -1272,7 +1273,8 @@
       ort.env.wasm.wasmPaths = 'vendor/';
       ort.env.wasm.numThreads = 1;
       ort.env.wasm.proxy = false;
-      return ort.InferenceSession.create('vendor/u2netp.onnx', { executionProviders: ['wasm'], graphOptimizationLevel: 'all' });
+      return fetch(MODEL_URL).then(function (r) { if (!r.ok) throw new Error('model ' + r.status); return r.arrayBuffer(); })
+        .then(function (buf) { return ort.InferenceSession.create(new Uint8Array(buf), { executionProviders: ['wasm'], graphOptimizationLevel: 'all' }); });
     }).then(function (s) { styleState.session = s; return s; }, function (e) { styleState.loading = null; throw e; });
     return styleState.loading;
   }
