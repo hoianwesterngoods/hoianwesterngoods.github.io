@@ -1,0 +1,912 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Listing Studio</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body, h1, h2, h3, p, figure, dl, dd { margin: 0; }
+  ul, ol { margin: 0; padding: 0; list-style: none; }
+  img, canvas, iframe { display: block; max-width: 100%; }
+  input, button, textarea, select { font: inherit; color: inherit; }
+  button { background: none; border: 0; cursor: pointer; }
+  [hidden] { display: none !important; }
+
+  :root {
+    --paper:   #F5F0E8;
+    --surface: #FFFDF9;
+    --sunk:    #EDE5D8;
+    --line:    #DDD2C1;
+    --ink:     #2A1F17;
+    --muted:   #75665A;
+    --accent:  #7A4424;
+    --accent-2:#A8652F;
+    --on-accent: #FFFFFF;
+    --good:    #3E6B3A;
+    --bad:     #A3352A;
+    --serif: "Didot", "Bodoni 72", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --gutter: clamp(1rem, 3.5vw, 2.5rem);
+    --r: 6px;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:   #15110E;
+      --surface: #1E1915;
+      --sunk:    #28211B;
+      --line:    #3A3028;
+      --ink:     #F0E8DE;
+      --muted:   #A9998A;
+      --accent:  #D9945E;
+      --accent-2:#E8B07F;
+      --on-accent: #1A120C;
+      --good:    #8CC484;
+      --bad:     #F08A7C;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:   #15110E;
+    --surface: #1E1915;
+    --sunk:    #28211B;
+    --line:    #3A3028;
+    --ink:     #F0E8DE;
+    --muted:   #A9998A;
+    --accent:  #D9945E;
+    --accent-2:#E8B07F;
+    --on-accent: #1A120C;
+    --good:    #8CC484;
+    --bad:     #F08A7C;
+    color-scheme: dark;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.55;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+  *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding-inline: var(--gutter); }
+
+  /* masthead */
+  .masthead { background: var(--surface); border-bottom: 1px solid var(--line); }
+  .masthead .wrap { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-block: 1rem; flex-wrap: wrap; }
+  .brand { display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap; }
+  .brand h1 { font-family: var(--serif); font-weight: 500; font-size: clamp(1.5rem, 4vw, 2rem); letter-spacing: .02em; }
+  .brand .sub { color: var(--muted); font-size: .8rem; letter-spacing: .18em; text-transform: uppercase; }
+  .top-actions { display: flex; gap: .5rem; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+    padding: .55rem .95rem; border-radius: var(--r); border: 1px solid var(--line);
+    background: var(--surface); font-size: .9rem; font-weight: 500; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.small { padding: .3rem .6rem; font-size: .8rem; }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+  .btn.ghost:hover { color: var(--ink); }
+
+  main.wrap { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.5rem; padding-block: 1.5rem 4rem; }
+  @media (min-width: 960px) { main.wrap { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; } .out { position: sticky; top: 1rem; } }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: calc(var(--r) * 1.5); padding: clamp(1rem, 2.5vw, 1.5rem); }
+  .card + .card { margin-top: 1.25rem; }
+  .card h2 { font-family: var(--serif); font-weight: 500; font-size: 1.25rem; margin-bottom: .25rem; }
+  .card .hint { color: var(--muted); font-size: .85rem; margin-bottom: 1rem; }
+  .step { color: var(--accent); font-family: var(--sans); font-size: .72rem; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; display: block; margin-bottom: .2rem; }
+
+  /* photos */
+  .drop {
+    border: 1.5px dashed var(--line); border-radius: var(--r); padding: 1.5rem 1rem; text-align: center;
+    background: var(--sunk); color: var(--muted); cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); color: var(--ink); }
+  .drop strong { color: var(--ink); display: block; font-size: 1rem; margin-bottom: .2rem; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: .6rem; margin-top: .9rem; }
+  .thumb { position: relative; aspect-ratio: 1; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--sunk); }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb .tag { position: absolute; left: 4px; top: 4px; background: var(--accent); color: var(--on-accent); font-size: .65rem; font-weight: 600; padding: 1px 6px; border-radius: 3px; letter-spacing: .06em; }
+  .thumb .ctl { position: absolute; inset: auto 0 0 0; display: flex; justify-content: space-between; background: rgba(0,0,0,.55); }
+  .thumb .ctl button { color: #fff; padding: 3px 7px; font-size: .8rem; line-height: 1; }
+  .thumb .ctl button:hover { background: rgba(255,255,255,.18); }
+  .suggest { margin-top: .8rem; font-size: .85rem; color: var(--muted); display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .swatch { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line); display: inline-block; }
+
+  /* choice tiles */
+  .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+  .tile { position: relative; }
+  .tile input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+  .tile label {
+    display: block; height: 100%; padding: .8rem .9rem; border: 1px solid var(--line); border-radius: var(--r);
+    background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s;
+  }
+  .tile label b { display: block; font-weight: 600; }
+  .tile label span { display: block; color: var(--muted); font-size: .8rem; line-height: 1.4; margin-top: .15rem; }
+  .tile input:checked + label { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); box-shadow: inset 0 0 0 1px var(--accent); }
+  .tile input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .tiles.sizes { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .tile .price { color: var(--accent); font-weight: 600; font-size: .85rem; margin-top: .3rem; display: block; }
+
+  .group + .group { margin-top: 1.1rem; }
+  .group > .lbl { font-size: .78rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: .45rem; display: block; }
+
+  .grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+  @media (max-width: 480px) { .grid2 { grid-template-columns: minmax(0, 1fr); } }
+  .field label { display: block; font-size: .78rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: .3rem; }
+  .field input, .field select, .field textarea {
+    width: 100%; padding: .55rem .65rem; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface);
+  }
+  .field textarea { min-height: 70px; resize: vertical; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); outline: none; }
+
+  /* output */
+  .price-row { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-bottom: 1rem; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+  .big-price { font-family: var(--serif); font-size: 2.2rem; line-height: 1; color: var(--accent); }
+  .price-break { color: var(--muted); font-size: .82rem; }
+  .out-block + .out-block { margin-top: 1.1rem; }
+  .out-head { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .4rem; }
+  .out-head .lbl { font-size: .78rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .title-box { width: 100%; padding: .7rem .75rem; border: 1px solid var(--line); border-radius: var(--r); background: var(--sunk); font-weight: 600; font-size: 1rem; }
+  .count { font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .count.over { color: var(--bad); font-weight: 600; }
+  table.specs { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  table.specs th, table.specs td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.specs th { color: var(--muted); font-weight: 500; width: 40%; }
+  .preview { width: 100%; height: 520px; border: 1px solid var(--line); border-radius: var(--r); background: #fff; }
+  .actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+
+  /* saved */
+  .saved-list li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: .75rem; align-items: center; padding: .6rem 0; border-bottom: 1px solid var(--line); }
+  .saved-list li:last-child { border-bottom: 0; }
+  .saved-list .sthumb { width: 48px; height: 48px; border-radius: var(--r); object-fit: cover; background: var(--sunk); }
+  .saved-list .st { font-weight: 500; font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .saved-list .sm { color: var(--muted); font-size: .78rem; }
+  .saved-list .sa { display: flex; gap: .25rem; }
+  .empty { color: var(--muted); font-size: .9rem; }
+
+  /* settings dialog */
+  dialog { border: 1px solid var(--line); border-radius: calc(var(--r) * 1.5); background: var(--surface); color: var(--ink); padding: 0; width: min(720px, calc(100vw - 2rem)); max-height: calc(100dvh - 2rem); }
+  dialog::backdrop { background: rgba(20, 12, 6, .5); }
+  .dlg-head { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.25rem; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); z-index: 1; }
+  .dlg-head h2 { font-family: var(--serif); font-weight: 500; font-size: 1.3rem; }
+  .dlg-body { padding: 1.25rem; }
+  .dlg-body h3 { font-size: .8rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 1.25rem 0 .6rem; }
+  .dlg-body h3:first-child { margin-top: 0; }
+  .price-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  .price-table th, .price-table td { padding: .35rem .4rem; border-bottom: 1px solid var(--line); text-align: left; }
+  .price-table input { width: 100%; max-width: 110px; padding: .35rem .5rem; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+  .names { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .5rem; }
+
+  .toast { position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%) translateY(20px); background: var(--ink); color: var(--paper); padding: .6rem 1rem; border-radius: var(--r); font-size: .88rem; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 50; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="brand">
+      <h1 id="brandName">Jalis &amp; Co.</h1>
+      <span class="sub">eBay Listing Studio</span>
+    </div>
+    <div class="top-actions">
+      <button class="btn" id="openSettings" type="button">Brand &amp; prices</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- LEFT: inputs -->
+  <section>
+    <div class="card">
+      <span class="step">Step 1</span>
+      <h2>Photos</h2>
+      <p class="hint">Add up to 24 photos. The first one becomes your eBay gallery (main) photo.</p>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Add photos">
+        <strong>Tap to add photos</strong>
+        or drag &amp; drop them here
+      </div>
+      <input type="file" id="fileInput" accept="image/*" multiple hidden>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="suggest" id="colorSuggest" hidden></div>
+    </div>
+
+    <div class="card">
+      <span class="step">Step 2</span>
+      <h2>Product</h2>
+      <p class="hint">Pick the product, size and hide. The price updates automatically.</p>
+
+      <div class="group">
+        <span class="lbl">Product</span>
+        <div class="tiles" id="typeTiles"></div>
+      </div>
+      <div class="group">
+        <span class="lbl">Size</span>
+        <div class="tiles sizes" id="sizeTiles"></div>
+      </div>
+      <div class="group">
+        <span class="lbl">Material</span>
+        <div class="tiles" id="materialTiles"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="step">Step 3</span>
+      <h2>Details</h2>
+      <p class="hint">These fill the item specifics and description.</p>
+      <div class="grid2">
+        <div class="field"><label for="grain">Grain</label>
+          <select id="grain"><option>Full Grain</option><option>Top Grain</option></select></div>
+        <div class="field"><label for="finish">Finish</label>
+          <select id="finish"><option>Crazy Horse</option><option>Oil Pull-Up</option><option>Vintage Distressed</option><option>Smooth</option><option>Pebbled</option></select></div>
+        <div class="field"><label for="color">Colour</label>
+          <select id="color"><option>Dark Brown</option><option>Brown</option><option>Cognac</option><option>Tan</option><option>Coffee</option><option>Chocolate</option><option>Black</option></select></div>
+        <div class="field"><label for="hardware">Hardware</label>
+          <select id="hardware"><option>Antique Brass</option><option>Solid Brass</option><option>Gunmetal</option><option>Nickel</option></select></div>
+        <div class="field"><label for="lining">Lining</label>
+          <select id="lining"><option>Heavy Cotton Canvas</option><option>Suede</option><option>Unlined</option></select></div>
+        <div class="field"><label for="condition">Condition</label>
+          <select id="condition"><option>New with tags</option><option>New without tags</option></select></div>
+        <div class="field"><label for="qty">Quantity</label>
+          <input id="qty" type="number" min="1" value="1"></div>
+        <div class="field"><label for="priceOverride">Price override ($)</label>
+          <input id="priceOverride" type="number" min="0" step="1" placeholder="Auto"></div>
+      </div>
+      <div class="field" style="margin-top:.8rem"><label for="notes">Extra notes (optional)</label>
+        <textarea id="notes" placeholder="e.g. Hand-stitched with waxed thread, detachable shoulder strap, shoe compartment…"></textarea></div>
+    </div>
+
+    <div class="card">
+      <div class="out-head" style="margin-bottom:.6rem">
+        <h2>Saved listings</h2>
+        <button class="btn small" id="exportCsv" type="button">Export CSV</button>
+      </div>
+      <ul class="saved-list" id="savedList"></ul>
+    </div>
+  </section>
+
+  <!-- RIGHT: output -->
+  <section class="out">
+    <div class="card">
+      <span class="step">Your listing</span>
+      <div class="price-row">
+        <div>
+          <div class="big-price" id="outPrice">$0</div>
+          <div class="price-break" id="outPriceBreak"></div>
+        </div>
+        <div class="price-break" id="outSku"></div>
+      </div>
+
+      <div class="out-block">
+        <div class="out-head">
+          <span class="lbl">Title</span>
+          <span><span class="count" id="titleCount">0/80</span> <button class="btn small" data-copy="title" type="button">Copy</button></span>
+        </div>
+        <input class="title-box" id="outTitle" maxlength="80" aria-label="Listing title">
+      </div>
+
+      <div class="out-block">
+        <div class="out-head">
+          <span class="lbl">Item specifics</span>
+          <button class="btn small" data-copy="specs" type="button">Copy</button>
+        </div>
+        <table class="specs"><tbody id="outSpecs"></tbody></table>
+      </div>
+
+      <div class="out-block">
+        <div class="out-head">
+          <span class="lbl">Description preview</span>
+          <button class="btn small" data-copy="html" type="button">Copy HTML</button>
+        </div>
+        <iframe class="preview" id="outPreview" sandbox title="Description preview"></iframe>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" id="saveListing" type="button">Save listing</button>
+        <button class="btn" data-copy="all" type="button">Copy everything</button>
+        <button class="btn" id="dlPhotos" type="button">Download eBay-ready photos</button>
+        <button class="btn ghost" id="resetForm" type="button">New listing</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<dialog id="settings">
+  <div class="dlg-head">
+    <h2>Brand &amp; prices</h2>
+    <button class="btn small" id="closeSettings" type="button">Done</button>
+  </div>
+  <div class="dlg-body">
+    <h3>Business name</h3>
+    <div class="field"><input id="setBrand" aria-label="Business name"></div>
+    <div class="names" id="nameIdeas"></div>
+    <div class="grid2" style="margin-top:.8rem">
+      <div class="field"><label for="setTagline">Tagline</label><input id="setTagline"></div>
+      <div class="field"><label for="setSkuPrefix">SKU prefix</label><input id="setSkuPrefix" maxlength="6"></div>
+    </div>
+
+    <h3>Prices (USD) — cowhide base price</h3>
+    <table class="price-table" id="priceTable"></table>
+    <div class="grid2" style="margin-top:.8rem">
+      <div class="field"><label for="addBufDuffle">Buffalo hide surcharge — duffles</label><input id="addBufDuffle" type="number" min="0"></div>
+      <div class="field"><label for="addBufBackpack">Buffalo hide surcharge — backpacks</label><input id="addBufBackpack" type="number" min="0"></div>
+    </div>
+
+    <h3>Policies shown in every description</h3>
+    <div class="field"><label for="setShipping">Shipping</label><textarea id="setShipping"></textarea></div>
+    <div class="field" style="margin-top:.8rem"><label for="setReturns">Returns</label><textarea id="setReturns"></textarea></div>
+    <div style="margin-top:1rem"><button class="btn small" id="resetSettings" type="button">Restore defaults</button></div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- catalogue ---------- */
+  var TYPES = {
+    duffle: {
+      label: 'Duffle Bag', blurb: 'Weekender & travel holdall', code: 'DUF',
+      keywords: ['Weekender', 'Travel', 'Gym', 'Overnight'],
+      ebayType: 'Duffle Bag', style: 'Weekender',
+      sizes: {
+        S:  { label: 'Small',  dims: '18 x 10 x 10 in', cm: '46 x 25 x 25 cm', cap: '30 L', inch: '18"', use: 'An overnight or gym bag' },
+        M:  { label: 'Medium', dims: '20 x 11 x 11 in', cm: '51 x 28 x 28 cm', cap: '40 L', inch: '20"', use: 'A 2–3 night weekender' },
+        L:  { label: 'Large',  dims: '22 x 12 x 12 in', cm: '56 x 30 x 30 cm', cap: '50 L', inch: '22"', use: 'A long weekend or short trip' },
+        XL: { label: 'XL',     dims: '24 x 13 x 12 in', cm: '61 x 33 x 30 cm', cap: '60 L', inch: '24"', use: 'A full week of travel' }
+      },
+      features: [
+        'Twin rolled leather top handles with reinforced stitching',
+        'Detachable, adjustable padded shoulder strap',
+        'Heavy-duty full-length zip closure',
+        'Interior zip pocket plus two open slip pockets',
+        'Protective feet on the base'
+      ]
+    },
+    backpack: {
+      label: 'Backpack', blurb: 'Laptop & everyday rucksack', code: 'BPK',
+      keywords: ['Laptop', 'Travel', 'Rucksack', 'Daypack'],
+      ebayType: 'Backpack', style: 'Backpack',
+      sizes: {
+        S: { label: 'Small',  dims: '14 x 11 x 5 in', cm: '36 x 28 x 13 cm', cap: '15 L', inch: '14"', use: 'Everyday carry; fits a 13" laptop', laptop: '13"' },
+        M: { label: 'Medium', dims: '16 x 12 x 6 in', cm: '41 x 30 x 15 cm', cap: '20 L', inch: '16"', use: 'Work & commute; fits a 15" laptop', laptop: '15"' },
+        L: { label: 'Large',  dims: '18 x 13 x 7 in', cm: '46 x 33 x 18 cm', cap: '28 L', inch: '18"', use: 'Travel & day trips; fits a 17" laptop', laptop: '17"' }
+      },
+      features: [
+        'Padded laptop sleeve',
+        'Adjustable padded leather shoulder straps',
+        'Rolled leather grab handle',
+        'Front zip pocket plus interior organiser pockets',
+        'Buckled flap with hidden magnetic closure'
+      ]
+    }
+  };
+
+  var MATERIALS = {
+    cow: {
+      label: 'Premium Cowhide', short: 'Cowhide', blurb: 'Smooth, dense, refined', code: 'COW',
+      ebay: 'Cowhide Leather',
+      copy: 'Cut from premium cowhide, this leather is dense, supple and remarkably durable. It wears in rather than out — softening and deepening into a rich patina with every trip.'
+    },
+    buffalo: {
+      label: 'Premium Buffalo Hide', short: 'Buffalo', blurb: 'Thicker, rugged, bold grain', code: 'BUF',
+      ebay: 'Buffalo Leather',
+      copy: 'Made from premium buffalo hide — thicker and tougher than cowhide, with a bold natural grain. Every hide carries its own markings, so no two bags are ever exactly alike.'
+    }
+  };
+
+  var NAME_IDEAS = ['Jalis & Co.', 'Jay & Lis Leatherworks', 'Maison Jalis', 'J&L Hide Co.', 'Lis & Jay Atelier'];
+
+  var DEFAULTS = {
+    brand: 'Jalis & Co.',
+    tagline: 'Handcrafted Leather Goods',
+    skuPrefix: 'JC',
+    prices: {
+      duffle:   { S: 189, M: 219, L: 249, XL: 279 },
+      backpack: { S: 149, M: 169, L: 189 }
+    },
+    buffaloAdd: { duffle: 30, backpack: 20 },
+    shipping: 'Ships within 2 business days, carefully packed in a protective dust bag. Tracking provided on every order.',
+    returns: '30-day returns accepted. Item must be unused and in original condition.'
+  };
+
+  /* ---------- storage (safe) ---------- */
+  function load(key, fallback) {
+    try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; }
+  }
+  function store(key, val) {
+    try { localStorage.setItem(key, JSON.stringify(val)); return true; } catch (e) { return false; }
+  }
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+  var settings = Object.assign(clone(DEFAULTS), load('ls.settings', {}));
+  settings.prices = Object.assign(clone(DEFAULTS.prices), settings.prices || {});
+  settings.buffaloAdd = Object.assign(clone(DEFAULTS.buffaloAdd), settings.buffaloAdd || {});
+  var saved = load('ls.saved', []);
+
+  var state = { type: 'duffle', size: 'M', material: 'cow', photos: [], editingId: null, titleEdited: false };
+  var current = {};
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove('show'); }, 1800);
+  }
+  function money(n) { return '$' + Number(n).toFixed(2).replace(/\.00$/, ''); }
+
+  /* ---------- tiles ---------- */
+  function tile(group, value, title, sub, checked, extra) {
+    var id = group + '-' + value;
+    return '<div class="tile"><input type="radio" name="' + group + '" id="' + id + '" value="' + value + '"' + (checked ? ' checked' : '') + '>' +
+      '<label for="' + id + '"><b>' + esc(title) + '</b><span>' + esc(sub) + '</span>' + (extra || '') + '</label></div>';
+  }
+  function priceFor(type, size, material) {
+    var base = Number(settings.prices[type][size]) || 0;
+    return base + (material === 'buffalo' ? Number(settings.buffaloAdd[type]) || 0 : 0);
+  }
+  function renderTiles() {
+    $('typeTiles').innerHTML = Object.keys(TYPES).map(function (k) {
+      return tile('type', k, TYPES[k].label, TYPES[k].blurb, state.type === k);
+    }).join('');
+    var sizes = TYPES[state.type].sizes;
+    if (!sizes[state.size]) state.size = 'M';
+    $('sizeTiles').innerHTML = Object.keys(sizes).map(function (k) {
+      var s = sizes[k];
+      return tile('size', k, s.label + ' · ' + s.inch, s.dims + ' · ' + s.cap, state.size === k,
+        '<span class="price">' + money(priceFor(state.type, k, state.material)) + '</span>');
+    }).join('');
+    $('materialTiles').innerHTML = Object.keys(MATERIALS).map(function (k) {
+      var add = Number(settings.buffaloAdd[state.type]) || 0;
+      var extra = k === 'buffalo' && add ? '<span class="price">+' + money(add) + '</span>' : '<span class="price">Base price</span>';
+      return tile('material', k, MATERIALS[k].label, MATERIALS[k].blurb, state.material === k, extra);
+    }).join('');
+  }
+  document.addEventListener('change', function (e) {
+    var n = e.target.name;
+    if (n === 'type' || n === 'size' || n === 'material') {
+      state[n] = e.target.value;
+      state.titleEdited = false;
+      renderTiles();
+      generate();
+    }
+  });
+
+  /* ---------- photos ---------- */
+  var drop = $('drop'), fileInput = $('fileInput');
+  drop.addEventListener('click', function () { fileInput.click(); });
+  drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+  drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', function () { drop.classList.remove('over'); });
+  drop.addEventListener('drop', function (e) { e.preventDefault(); drop.classList.remove('over'); addFiles(e.dataTransfer.files); });
+  fileInput.addEventListener('change', function () { addFiles(fileInput.files); fileInput.value = ''; });
+
+  function addFiles(list) {
+    var files = Array.prototype.filter.call(list || [], function (f) { return /^image\//.test(f.type); });
+    files.forEach(function (f) {
+      if (state.photos.length >= 24) return;
+      state.photos.push({ file: f, url: URL.createObjectURL(f) });
+    });
+    renderThumbs();
+    if (files.length) detectColor();
+  }
+  function renderThumbs() {
+    $('thumbs').innerHTML = state.photos.map(function (p, i) {
+      return '<div class="thumb"><img src="' + p.url + '" alt="Photo ' + (i + 1) + '">' +
+        (i === 0 ? '<span class="tag">MAIN</span>' : '') +
+        '<div class="ctl">' +
+        '<button type="button" data-ph="left" data-i="' + i + '" aria-label="Move left">‹</button>' +
+        '<button type="button" data-ph="del" data-i="' + i + '" aria-label="Remove">✕</button>' +
+        '<button type="button" data-ph="right" data-i="' + i + '" aria-label="Move right">›</button>' +
+        '</div></div>';
+    }).join('');
+  }
+  $('thumbs').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-ph]'); if (!b) return;
+    var i = Number(b.dataset.i), a = state.photos, act = b.dataset.ph;
+    if (act === 'del') { URL.revokeObjectURL(a[i].url); a.splice(i, 1); }
+    if (act === 'left' && i > 0) a.splice(i - 1, 0, a.splice(i, 1)[0]);
+    if (act === 'right' && i < a.length - 1) a.splice(i + 1, 0, a.splice(i, 1)[0]);
+    renderThumbs();
+    if (i === 0 || act !== 'del') detectColor();
+  });
+
+  function loadImg(url) {
+    return new Promise(function (res, rej) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = url; });
+  }
+
+  /* Suggest a leather colour from the centre of the main photo */
+  function detectColor() {
+    var box = $('colorSuggest');
+    if (!state.photos.length) { box.hidden = true; return; }
+    loadImg(state.photos[0].url).then(function (im) {
+      var c = document.createElement('canvas'); c.width = c.height = 60;
+      var x = c.getContext('2d');
+      var sw = im.naturalWidth * 0.5, sh = im.naturalHeight * 0.5;
+      x.drawImage(im, im.naturalWidth * 0.25, im.naturalHeight * 0.25, sw, sh, 0, 0, 60, 60);
+      var d = x.getImageData(0, 0, 60, 60).data, r = 0, g = 0, b = 0, n = 0;
+      for (var i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+      r /= n; g /= n; b /= n;
+      var name = colourName(r, g, b);
+      box.innerHTML = '<span class="swatch" style="background:rgb(' + [r, g, b].map(Math.round).join(',') + ')"></span>' +
+        'Looks like <b>' + name + '</b> from your main photo.' +
+        ' <button class="btn small" type="button" id="useColor">Use it</button>';
+      box.hidden = false;
+      $('useColor').onclick = function () { $('color').value = name; state.titleEdited = false; generate(); toast('Colour set to ' + name); };
+    }).catch(function () { box.hidden = true; });
+  }
+  function colourName(r, g, b) {
+    var mx = Math.max(r, g, b) / 255, mn = Math.min(r, g, b) / 255, l = (mx + mn) / 2;
+    var s = mx === mn ? 0 : (l > 0.5 ? (mx - mn) / (2 - mx - mn) : (mx - mn) / (mx + mn));
+    if (l < 0.13 || (l < 0.2 && s < 0.25)) return 'Black';
+    if (l < 0.24) return 'Chocolate';
+    if (l < 0.33) return 'Dark Brown';
+    if (l < 0.42) return s > 0.45 ? 'Cognac' : 'Coffee';
+    if (l < 0.52) return s > 0.4 ? 'Cognac' : 'Brown';
+    return 'Tan';
+  }
+
+  /* ---------- generator ---------- */
+  var FIELDS = ['grain', 'finish', 'color', 'hardware', 'lining', 'condition', 'qty', 'priceOverride', 'notes'];
+  FIELDS.forEach(function (f) {
+    $(f).addEventListener('input', function () {
+      if (f !== 'qty' && f !== 'priceOverride' && f !== 'notes') state.titleEdited = false;
+      generate();
+    });
+  });
+  $('outTitle').addEventListener('input', function () {
+    state.titleEdited = true;
+    current.title = $('outTitle').value;
+    updateCount();
+  });
+
+  function val(id) { return $(id).value; }
+
+  function buildTitle(t, s, m, o) {
+    // Tokens in priority order; lower-priority ones are dropped to fit eBay's 80-char limit.
+    var tokens = [
+      [1, settings.brand],
+      [1, o.grain],
+      [1, m.short],
+      [1, 'Leather'],
+      [1, t.label],
+      [2, s.inch],
+      [2, s.label],
+      [3, o.color],
+      [4, t.keywords[0]],
+      [5, t === TYPES.backpack ? 'Men Women' : 'Bag Travel'],
+      [6, 'Handmade'],
+      [7, o.finish]
+    ];
+    if (t === TYPES.backpack) tokens.push([5, 'Fits ' + s.laptop + ' Laptop']);
+    // Remove the redundant "Bag Travel" token for backpacks already handled; keep order stable.
+    var keep = tokens.slice();
+    var join = function (arr) { return arr.map(function (x) { return x[1]; }).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(); };
+    var maxP = 7;
+    while (join(keep).length > 80 && maxP > 1) {
+      keep = keep.filter(function (x) { return x[0] < maxP; });
+      maxP--;
+    }
+    var out = join(keep);
+    if (out.length > 80) out = out.slice(0, 80).replace(/\s+\S*$/, '');
+    return out;
+  }
+
+  function buildSku(t, s, m, o) {
+    var col = o.color.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
+    var n = String(saved.length + 1).padStart(3, '0');
+    return [settings.skuPrefix || 'JC', t.code, s === undefined ? '' : state.size, m.code, col, n].join('-');
+  }
+
+  function buildSpecs(t, s, m, o) {
+    var rows = [
+      ['Brand', settings.brand],
+      ['Type', t.ebayType],
+      ['Style', t.style],
+      ['Department', 'Unisex Adults'],
+      ['Exterior Material', m.ebay],
+      ['Leather Grade', o.grain],
+      ['Leather Finish', o.finish],
+      ['Exterior Colour', o.color],
+      ['Hardware Colour', o.hardware],
+      ['Lining Material', o.lining],
+      ['Size', s.label + ' (' + s.inch + ')'],
+      ['Dimensions', s.dims + ' (' + s.cm + ')'],
+      ['Capacity', s.cap],
+      ['Closure', t === TYPES.duffle ? 'Zip' : 'Buckle & Magnetic Flap'],
+      ['Handmade', 'Yes'],
+      ['Condition', o.condition]
+    ];
+    if (s.laptop) rows.splice(13, 0, ['Laptop Size', 'Up to ' + s.laptop]);
+    return rows;
+  }
+
+  function buildDescription(title, t, s, m, o) {
+    var accent = '#7A4424', ink = '#2A1F17', muted = '#75665A', line = '#E4D9C8', cream = '#FAF6EF';
+    var features = t.features.slice();
+    if (o.lining !== 'Unlined') features.push(o.lining + ' interior lining');
+    features.push(o.hardware + ' hardware throughout');
+    var notes = o.notes.trim()
+      ? '<p style="margin:0 0 18px;line-height:1.65">' + esc(o.notes.trim()).replace(/\n/g, '<br>') + '</p>' : '';
+    var h = function (txt) {
+      return '<h3 style="font-family:Georgia,serif;font-weight:normal;font-size:18px;color:' + accent +
+        ';letter-spacing:1px;text-transform:uppercase;margin:28px 0 10px;border-bottom:1px solid ' + line + ';padding-bottom:6px">' + txt + '</h3>';
+    };
+    var row = function (k, v) {
+      return '<tr><td style="padding:7px 10px;border-bottom:1px solid ' + line + ';color:' + muted + ';width:42%">' + esc(k) +
+        '</td><td style="padding:7px 10px;border-bottom:1px solid ' + line + '">' + esc(v) + '</td></tr>';
+    };
+    return '<div style="max-width:800px;margin:0 auto;font-family:Helvetica,Arial,sans-serif;font-size:15px;color:' + ink + ';background:#fff">' +
+      '<div style="text-align:center;padding:28px 16px 22px;background:' + cream + ';border-bottom:2px solid ' + accent + '">' +
+        '<div style="font-family:Georgia,serif;font-size:30px;letter-spacing:3px;color:' + ink + '">' + esc(settings.brand) + '</div>' +
+        (settings.tagline ? '<div style="font-size:11px;letter-spacing:4px;text-transform:uppercase;color:' + muted + ';margin-top:6px">' + esc(settings.tagline) + '</div>' : '') +
+      '</div>' +
+      '<div style="padding:24px 20px">' +
+        '<h2 style="font-family:Georgia,serif;font-weight:normal;font-size:22px;line-height:1.35;margin:0 0 14px">' + esc(title) + '</h2>' +
+        '<p style="margin:0 0 14px;line-height:1.65">' + esc(m.copy) + '</p>' +
+        '<p style="margin:0 0 18px;line-height:1.65">Our ' + esc(s.label === 'XL' ? 'XL' : s.label.toLowerCase()) + ' ' + esc(t.label.toLowerCase()) +
+          ' is finished in ' + esc(o.color.toLowerCase()) + ' ' + esc(o.finish.toLowerCase()) + ' ' + esc(o.grain.toLowerCase()) +
+          ' leather — ideal for ' + esc(s.use.charAt(0).toLowerCase() + s.use.slice(1)) + '.</p>' +
+        notes +
+        h('Features') +
+        '<ul style="margin:0;padding-left:20px;line-height:1.8">' + features.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>' +
+        h('Specifications') +
+        '<table style="width:100%;border-collapse:collapse;font-size:14px">' +
+          row('Material', m.label + ' (' + o.grain + ')') +
+          row('Finish', o.finish) +
+          row('Colour', o.color) +
+          row('Size', s.label + ' — ' + s.inch) +
+          row('Dimensions', s.dims + ' / ' + s.cm) +
+          row('Capacity', s.cap) +
+          (s.laptop ? row('Laptop', 'Fits up to ' + s.laptop) : '') +
+          row('Hardware', o.hardware) +
+          row('Lining', o.lining) +
+        '</table>' +
+        h('About the leather') +
+        '<p style="margin:0;line-height:1.65">Genuine leather is a natural material. Small variations in grain, colour and texture are a mark of authenticity, not a flaw, and will make your piece uniquely yours. Colours may vary slightly from screen to screen.</p>' +
+        h('Care') +
+        '<p style="margin:0;line-height:1.65">Wipe with a soft, dry cloth. Condition every 6–12 months with a quality leather balm. Keep away from prolonged direct heat and stuff lightly when stored to keep its shape.</p>' +
+        h('Shipping &amp; Returns') +
+        '<p style="margin:0 0 8px;line-height:1.65">' + esc(settings.shipping) + '</p>' +
+        '<p style="margin:0;line-height:1.65">' + esc(settings.returns) + '</p>' +
+      '</div>' +
+      '<div style="text-align:center;padding:18px;background:' + cream + ';font-size:12px;letter-spacing:2px;text-transform:uppercase;color:' + muted + '">Thank you for supporting ' + esc(settings.brand) + '</div>' +
+    '</div>';
+  }
+
+  function generate() {
+    var t = TYPES[state.type], s = t.sizes[state.size], m = MATERIALS[state.material];
+    var o = {};
+    FIELDS.forEach(function (f) { o[f] = val(f); });
+
+    var auto = priceFor(state.type, state.size, state.material);
+    var price = o.priceOverride !== '' && Number(o.priceOverride) > 0 ? Number(o.priceOverride) : auto;
+    var title = state.titleEdited ? $('outTitle').value : buildTitle(t, s, m, o);
+    var specs = buildSpecs(t, s, m, o);
+    var sku = state.editingId ? current.sku : buildSku(t, s, m, o);
+
+    current = {
+      sku: sku, title: title, price: price, qty: Math.max(1, parseInt(o.qty, 10) || 1),
+      type: state.type, size: state.size, material: state.material, opts: o, specs: specs,
+      html: buildDescription(title, t, s, m, o)
+    };
+
+    $('outPrice').textContent = money(price);
+    var base = Number(settings.prices[state.type][state.size]) || 0;
+    $('outPriceBreak').textContent = (o.priceOverride !== '' && Number(o.priceOverride) > 0)
+      ? 'Manual price (suggested ' + money(auto) + ')'
+      : t.label + ' ' + s.label + ' ' + money(base) + (state.material === 'buffalo' ? ' + buffalo ' + money(settings.buffaloAdd[state.type]) : '');
+    $('outSku').textContent = 'SKU ' + sku + ' · Qty ' + current.qty;
+    if (!state.titleEdited) $('outTitle').value = title;
+    updateCount();
+    $('outSpecs').innerHTML = specs.map(function (r) { return '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>'; }).join('');
+    $('outPreview').srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#fff">' + current.html + '</body>';
+  }
+  function updateCount() {
+    var n = $('outTitle').value.length, c = $('titleCount');
+    c.textContent = n + '/80'; c.classList.toggle('over', n > 80);
+  }
+
+  /* ---------- copy ---------- */
+  function specsText(specs) { return specs.map(function (r) { return r[0] + ': ' + r[1]; }).join('\n'); }
+  function copy(text, label) {
+    var done = function () { toast(label + ' copied'); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    } else { fallbackCopy(text); done(); }
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove();
+  }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-copy]'); if (!b) return;
+    var k = b.dataset.copy;
+    if (k === 'title') copy(current.title, 'Title');
+    if (k === 'specs') copy(specsText(current.specs), 'Item specifics');
+    if (k === 'html') copy(current.html, 'Description HTML');
+    if (k === 'all') copy(
+      'TITLE\n' + current.title + '\n\nPRICE\n' + money(current.price) + '\n\nQUANTITY\n' + current.qty +
+      '\n\nSKU\n' + current.sku + '\n\nCONDITION\n' + current.opts.condition +
+      '\n\nITEM SPECIFICS\n' + specsText(current.specs) + '\n\nDESCRIPTION (HTML)\n' + current.html, 'Listing');
+  });
+
+  /* ---------- eBay-ready photos ---------- */
+  $('dlPhotos').addEventListener('click', function () {
+    if (!state.photos.length) { toast('Add some photos first'); return; }
+    toast('Preparing ' + state.photos.length + ' photo' + (state.photos.length > 1 ? 's' : '') + '…');
+    var i = 0;
+    (function next() {
+      if (i >= state.photos.length) return;
+      var p = state.photos[i], idx = i;
+      loadImg(p.url).then(function (im) {
+        // eBay recommends 1600px on the longest side for zoom.
+        var max = 1600, w = im.naturalWidth, h = im.naturalHeight, k = Math.min(1, max / Math.max(w, h));
+        var c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+        var x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+        x.imageSmoothingQuality = 'high'; x.drawImage(im, 0, 0, c.width, c.height);
+        c.toBlob(function (blob) {
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+          a.download = current.sku + '-' + String(idx + 1).padStart(2, '0') + '.jpg';
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+          i++; setTimeout(next, 350);
+        }, 'image/jpeg', 0.9);
+      }).catch(function () { i++; next(); });
+    })();
+  });
+
+  /* ---------- saved listings ---------- */
+  function thumbData() {
+    if (!state.photos.length) return Promise.resolve('');
+    return loadImg(state.photos[0].url).then(function (im) {
+      var c = document.createElement('canvas'); c.width = c.height = 96;
+      var x = c.getContext('2d'), sz = Math.min(im.naturalWidth, im.naturalHeight);
+      x.drawImage(im, (im.naturalWidth - sz) / 2, (im.naturalHeight - sz) / 2, sz, sz, 0, 0, 96, 96);
+      return c.toDataURL('image/jpeg', 0.7);
+    }).catch(function () { return ''; });
+  }
+  $('saveListing').addEventListener('click', function () {
+    thumbData().then(function (thumb) {
+      var rec = clone(current);
+      rec.thumb = thumb || (state.editingId && (saved.find(function (x) { return x.id === state.editingId; }) || {}).thumb) || '';
+      rec.titleEdited = state.titleEdited;
+      rec.date = new Date().toISOString();
+      if (state.editingId) {
+        rec.id = state.editingId;
+        saved = saved.map(function (x) { return x.id === rec.id ? rec : x; });
+      } else {
+        rec.id = Date.now().toString(36);
+        saved.unshift(rec);
+      }
+      state.editingId = rec.id;
+      if (!store('ls.saved', saved)) toast('Saved for this session only (browser storage unavailable)');
+      else toast('Listing saved');
+      renderSaved();
+    });
+  });
+  function renderSaved() {
+    var ul = $('savedList');
+    if (!saved.length) { ul.innerHTML = '<li class="empty" style="display:block;border:0">No saved listings yet. Saved listings stay in this browser.</li>'; return; }
+    ul.innerHTML = saved.map(function (r) {
+      return '<li><img class="sthumb" alt="" src="' + (r.thumb || 'data:image/gif;base64,R0lGODlhAQABAAAAACw=') + '">' +
+        '<div style="min-width:0"><div class="st">' + esc(r.title) + '</div><div class="sm">' + esc(r.sku) + ' · ' + money(r.price) + ' · ' + new Date(r.date).toLocaleDateString() + '</div></div>' +
+        '<div class="sa"><button class="btn small" type="button" data-open="' + r.id + '">Open</button>' +
+        '<button class="btn small ghost" type="button" data-del="' + r.id + '" aria-label="Delete">✕</button></div></li>';
+    }).join('');
+  }
+  $('savedList').addEventListener('click', function (e) {
+    var o = e.target.closest('[data-open]'), d = e.target.closest('[data-del]');
+    if (d) {
+      if (!confirm('Delete this saved listing?')) return;
+      saved = saved.filter(function (x) { return x.id !== d.dataset.del; });
+      if (state.editingId === d.dataset.del) state.editingId = null;
+      store('ls.saved', saved); renderSaved(); return;
+    }
+    if (o) {
+      var r = saved.find(function (x) { return x.id === o.dataset.open; }); if (!r) return;
+      state.type = r.type; state.size = r.size; state.material = r.material; state.editingId = r.id;
+      current.sku = r.sku;
+      FIELDS.forEach(function (f) { if (r.opts && f in r.opts) $(f).value = r.opts[f]; });
+      state.titleEdited = !!r.titleEdited;
+      if (state.titleEdited) $('outTitle').value = r.title;
+      renderTiles(); generate();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      toast('Opened ' + r.sku + ' (photos are not stored — re-add them to download)');
+    }
+  });
+  $('exportCsv').addEventListener('click', function () {
+    if (!saved.length) { toast('Nothing saved yet'); return; }
+    var cols = ['SKU', 'Title', 'Price', 'Quantity', 'Condition', 'Product', 'Size', 'Material', 'Colour', 'Finish', 'Description HTML'];
+    var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var lines = [cols.join(',')].concat(saved.map(function (r) {
+      return [r.sku, r.title, r.price, r.qty, r.opts.condition, TYPES[r.type].label, TYPES[r.type].sizes[r.size].label,
+        MATERIALS[r.material].label, r.opts.color, r.opts.finish, r.html].map(q).join(',');
+    }));
+    var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'listings.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  $('resetForm').addEventListener('click', function () {
+    state.photos.forEach(function (p) { URL.revokeObjectURL(p.url); });
+    state.photos = []; state.editingId = null; state.titleEdited = false;
+    $('notes').value = ''; $('priceOverride').value = ''; $('qty').value = 1;
+    renderThumbs(); $('colorSuggest').hidden = true; generate();
+    toast('Ready for a new listing');
+  });
+
+  /* ---------- settings ---------- */
+  var dlg = $('settings');
+  function fillSettings() {
+    $('setBrand').value = settings.brand;
+    $('setTagline').value = settings.tagline;
+    $('setSkuPrefix').value = settings.skuPrefix;
+    $('addBufDuffle').value = settings.buffaloAdd.duffle;
+    $('addBufBackpack').value = settings.buffaloAdd.backpack;
+    $('setShipping').value = settings.shipping;
+    $('setReturns').value = settings.returns;
+    $('nameIdeas').innerHTML = NAME_IDEAS.map(function (n) { return '<button class="btn small" type="button" data-name="' + esc(n) + '">' + esc(n) + '</button>'; }).join('');
+    var html = '<tr><th>Product</th><th>Size</th><th>Cowhide price</th><th>Buffalo price</th></tr>';
+    Object.keys(TYPES).forEach(function (t) {
+      Object.keys(TYPES[t].sizes).forEach(function (s) {
+        html += '<tr><td>' + TYPES[t].label + '</td><td>' + TYPES[t].sizes[s].label + ' ' + TYPES[t].sizes[s].inch + '</td>' +
+          '<td><input type="number" min="0" data-pt="' + t + '" data-ps="' + s + '" value="' + settings.prices[t][s] + '" aria-label="' + TYPES[t].label + ' ' + TYPES[t].sizes[s].label + ' price"></td>' +
+          '<td class="bufp" data-bt="' + t + '" data-bs="' + s + '">' + money(priceFor(t, s, 'buffalo')) + '</td></tr>';
+      });
+    });
+    $('priceTable').innerHTML = html;
+  }
+  function readSettings() {
+    settings.brand = $('setBrand').value.trim() || DEFAULTS.brand;
+    settings.tagline = $('setTagline').value.trim();
+    settings.skuPrefix = ($('setSkuPrefix').value.trim() || 'JC').toUpperCase();
+    settings.buffaloAdd.duffle = Number($('addBufDuffle').value) || 0;
+    settings.buffaloAdd.backpack = Number($('addBufBackpack').value) || 0;
+    settings.shipping = $('setShipping').value.trim();
+    settings.returns = $('setReturns').value.trim();
+    document.querySelectorAll('[data-pt]').forEach(function (i) { settings.prices[i.dataset.pt][i.dataset.ps] = Number(i.value) || 0; });
+    document.querySelectorAll('.bufp').forEach(function (td) { td.textContent = money(priceFor(td.dataset.bt, td.dataset.bs, 'buffalo')); });
+    store('ls.settings', settings);
+    applyBrand(); state.titleEdited = false; renderTiles(); generate();
+  }
+  function applyBrand() { $('brandName').textContent = settings.brand; document.title = settings.brand + ' · Listing Studio'; }
+  dlg.addEventListener('input', readSettings);
+  dlg.addEventListener('click', function (e) {
+    var n = e.target.closest('[data-name]');
+    if (n) { $('setBrand').value = n.dataset.name; readSettings(); }
+  });
+  $('openSettings').addEventListener('click', function () { fillSettings(); dlg.showModal(); });
+  $('closeSettings').addEventListener('click', function () { dlg.close(); });
+  $('resetSettings').addEventListener('click', function () {
+    if (!confirm('Restore default name, prices and policies?')) return;
+    settings = clone(DEFAULTS); store('ls.settings', settings); fillSettings(); readSettings();
+  });
+
+  /* ---------- init ---------- */
+  applyBrand();
+  renderTiles();
+  renderThumbs();
+  renderSaved();
+  generate();
+})();
+</script>
+</body>
+</html>
