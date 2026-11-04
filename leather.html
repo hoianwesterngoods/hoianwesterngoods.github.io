@@ -179,6 +179,8 @@
   .pill.bad  { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
   .target { font-size: .85rem; color: var(--muted); margin-top: .5rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
   .target b { color: var(--ink); }
+  .target-btn { margin-top: .4rem; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
 
   .ai { margin-top: .9rem; padding: .7rem .85rem; border-radius: var(--r); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line)); font-size: .86rem; display: flex; gap: .6rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
   .ai-msg { min-width: 0; flex: 1 1 220px; }
@@ -293,7 +295,8 @@
       <h2>Price &amp; stock</h2>
       <div class="grid2">
         <div class="field"><label for="priceOverride">Your price (£)</label>
-          <input id="priceOverride" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 169"></div>
+          <input id="priceOverride" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 169">
+          <button class="btn small target-btn" type="button" id="setTargetPrice" disabled>Set price for 30% margin</button></div>
         <div class="field"><label for="buyVnd">Buy price (VND)</label>
           <input id="buyVnd" type="text" inputmode="numeric" placeholder="e.g. 1,850,000" autocomplete="off">
           <div class="field-hint" id="buyHint"></div></div>
@@ -1178,7 +1181,19 @@
     var need = [!price && 'your price', !buy && 'the buy price'].filter(Boolean);
     tgt.textContent = need.length ? 'Enter ' + need.join(' and ') + ' to see your profit.' : '';
     tgt.hidden = !need.length;
+    var tb = $('setTargetPrice'), tm = Number(settings.targetMargin) || 0;
+    tb.textContent = 'Set price for ' + tm + '% margin';
+    tb.disabled = !buy || !p.target;
+    tb.title = buy ? '' : 'Enter the buy price first';
   }
+  $('setTargetPrice').addEventListener('click', function () {
+    var buy = parseVnd($('buyVnd').value);
+    var t = profitFor(1, buy).target;
+    if (!buy || !t) { toast('Enter the buy price first'); return; }
+    $('priceOverride').value = t;
+    generate();
+    toast('Price set to ' + money(t) + ' (' + (current.margin * 100).toFixed(1) + '% margin)');
+  });
   function updateCount() {
     var n = $('outTitle').value.length, c = $('titleCount');
     c.textContent = n + '/80'; c.classList.toggle('over', n > 80);
