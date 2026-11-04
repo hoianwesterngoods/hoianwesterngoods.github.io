@@ -25,6 +25,7 @@
     --accent-2:#A8652F;
     --on-accent: #FFFFFF;
     --good:    #3E6B3A;
+    --warn:    #946200;
     --bad:     #A3352A;
     --serif: "Didot", "Bodoni 72", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
     --sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -44,6 +45,7 @@
       --accent-2:#E8B07F;
       --on-accent: #1A120C;
       --good:    #8CC484;
+      --warn:    #E2B55C;
       --bad:     #F08A7C;
       color-scheme: dark;
     }
@@ -59,6 +61,7 @@
     --accent-2:#E8B07F;
     --on-accent: #1A120C;
     --good:    #8CC484;
+    --warn:    #E2B55C;
     --bad:     #F08A7C;
     color-scheme: dark;
   }
@@ -165,6 +168,17 @@
   .preview { width: 100%; height: 520px; border: 1px solid var(--line); border-radius: var(--r); background: #fff; }
   .actions { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--line); }
 
+  .field-hint { color: var(--muted); font-size: .8rem; margin-top: .3rem; font-variant-numeric: tabular-nums; }
+  table.profit td { text-align: right; font-variant-numeric: tabular-nums; }
+  table.profit tr.total th, table.profit tr.total td { font-weight: 600; color: var(--ink); border-bottom: 0; padding-top: .6rem; }
+  .muted { color: var(--muted); font-weight: 400; }
+  .pill { display: inline-block; font-size: .72rem; font-weight: 600; padding: 1px 8px; border-radius: 999px; margin-left: .35rem; vertical-align: 1px; }
+  .pill.good { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+  .pill.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .pill.bad  { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
+  .target { font-size: .85rem; color: var(--muted); margin-top: .5rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+  .target b { color: var(--ink); }
+
   /* saved */
   .saved-list li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: .75rem; align-items: center; padding: .6rem 0; border-bottom: 1px solid var(--line); }
   .saved-list li:last-child { border-bottom: 0; }
@@ -196,7 +210,7 @@
 <header class="masthead">
   <div class="wrap">
     <div class="brand">
-      <h1 id="brandName">Jalis &amp; Co.</h1>
+      <h1 id="brandName">J&amp;L Leather Co.</h1>
       <span class="sub">eBay Listing Studio</span>
     </div>
     <div class="top-actions">
@@ -259,9 +273,12 @@
           <select id="condition"><option>New with tags</option><option>New without tags</option></select></div>
         <div class="field"><label for="qty">Quantity</label>
           <input id="qty" type="number" min="1" value="1"></div>
-        <div class="field"><label for="priceOverride">Price override ($)</label>
+        <div class="field"><label for="priceOverride">Price override (£)</label>
           <input id="priceOverride" type="number" min="0" step="1" placeholder="Auto"></div>
       </div>
+      <div class="field" style="margin-top:.8rem"><label for="buyVnd">Buy price (VND)</label>
+        <input id="buyVnd" type="text" inputmode="numeric" placeholder="e.g. 1,850,000" autocomplete="off">
+        <div class="field-hint" id="buyHint"></div></div>
       <div class="field" style="margin-top:.8rem"><label for="notes">Extra notes (optional)</label>
         <textarea id="notes" placeholder="e.g. Hand-stitched with waxed thread, detachable shoulder strap, shoe compartment…"></textarea></div>
     </div>
@@ -281,10 +298,16 @@
       <span class="step">Your listing</span>
       <div class="price-row">
         <div>
-          <div class="big-price" id="outPrice">$0</div>
+          <div class="big-price" id="outPrice">£0</div>
           <div class="price-break" id="outPriceBreak"></div>
         </div>
         <div class="price-break" id="outSku"></div>
+      </div>
+
+      <div class="out-block profit-block">
+        <div class="out-head"><span class="lbl">Profit per sale</span></div>
+        <table class="specs profit"><tbody id="outProfit"></tbody></table>
+        <p class="target" id="outTarget"></p>
       </div>
 
       <div class="out-block">
@@ -335,12 +358,28 @@
       <div class="field"><label for="setSkuPrefix">SKU prefix</label><input id="setSkuPrefix" maxlength="6"></div>
     </div>
 
-    <h3>Prices (USD) — cowhide base price</h3>
+    <h3>Selling prices (GBP, including VAT)</h3>
     <table class="price-table" id="priceTable"></table>
     <div class="grid2" style="margin-top:.8rem">
       <div class="field"><label for="addBufDuffle">Buffalo hide surcharge — duffles</label><input id="addBufDuffle" type="number" min="0"></div>
       <div class="field"><label for="addBufBackpack">Buffalo hide surcharge — backpacks</label><input id="addBufBackpack" type="number" min="0"></div>
     </div>
+
+    <h3>Costs &amp; margins</h3>
+    <div class="grid2">
+      <div class="field"><label for="setRate">VND per £1</label><input id="setRate" type="number" min="1" step="100"></div>
+      <div class="field"><label for="setTarget">Target margin (%)</label><input id="setTarget" type="number" min="0" max="90" step="1"></div>
+      <div class="field"><label for="setVatRate">VAT rate (%)</label><input id="setVatRate" type="number" min="0" max="50" step="1"></div>
+      <div class="field"><label for="setVatMode">How eBay takes VAT</label>
+        <select id="setVatMode">
+          <option value="inclusive">Included in the price (price ÷ 1.2)</option>
+          <option value="flat">Flat % off the price (price × 0.8)</option>
+        </select></div>
+      <div class="field"><label for="setFeePct">eBay fee (% of sale)</label><input id="setFeePct" type="number" min="0" step="0.1"></div>
+      <div class="field"><label for="setFeeFixed">eBay fee per order (£)</label><input id="setFeeFixed" type="number" min="0" step="0.01"></div>
+      <div class="field"><label for="setShipCost">Your shipping cost per bag (£)</label><input id="setShipCost" type="number" min="0" step="0.01"></div>
+    </div>
+    <p class="field-hint" style="margin-top:.5rem">Check the exchange rate before you list. Fees and shipping are optional; leave them at 0 to count VAT only.</p>
 
     <h3>Policies shown in every description</h3>
     <div class="field"><label for="setShipping">Shipping</label><textarea id="setShipping"></textarea></div>
@@ -407,17 +446,26 @@
     }
   };
 
-  var NAME_IDEAS = ['Jalis & Co.', 'Jay & Lis Leatherworks', 'Maison Jalis', 'J&L Hide Co.', 'Lis & Jay Atelier'];
+  var NAME_IDEAS = ['J&L Leather Co.', 'J&L Leatherworks', 'J&L Hide & Co.', 'Jay & Lis Leather'];
 
   var DEFAULTS = {
-    brand: 'Jalis & Co.',
+    currency: 'GBP',
+    brand: 'J&L Leather Co.',
     tagline: 'Handcrafted Leather Goods',
-    skuPrefix: 'JC',
+    skuPrefix: 'JL',
     prices: {
-      duffle:   { S: 189, M: 219, L: 249, XL: 279 },
-      backpack: { S: 149, M: 169, L: 189 }
+      duffle:   { S: 149, M: 169, L: 189, XL: 209 },
+      backpack: { S: 119, M: 135, L: 149 }
     },
-    buffaloAdd: { duffle: 30, backpack: 20 },
+    buffaloAdd: { duffle: 25, backpack: 15 },
+    vndPerGbp: 34000,
+    vatRate: 20,
+    vatMode: 'inclusive',
+    feePct: 0,
+    feeFixed: 0,
+    shipCost: 0,
+    targetMargin: 30,
+    costs: {},
     shipping: 'Ships within 2 business days, carefully packed in a protective dust bag. Tracking provided on every order.',
     returns: '30-day returns accepted. Item must be unused and in original condition.'
   };
@@ -431,9 +479,19 @@
   }
   function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
-  var settings = Object.assign(clone(DEFAULTS), load('ls.settings', {}));
+  var storedSettings = load('ls.settings', {}) || {};
+  var settings = Object.assign(clone(DEFAULTS), storedSettings);
+  if (storedSettings.currency !== 'GBP') {
+    // Older saves were in USD under the old name: move them to the new GBP defaults.
+    settings.prices = clone(DEFAULTS.prices);
+    settings.buffaloAdd = clone(DEFAULTS.buffaloAdd);
+    if (!storedSettings.brand || storedSettings.brand === 'Jalis & Co.') settings.brand = DEFAULTS.brand;
+    if (!storedSettings.skuPrefix || storedSettings.skuPrefix === 'JC') settings.skuPrefix = DEFAULTS.skuPrefix;
+    settings.currency = 'GBP';
+  }
   settings.prices = Object.assign(clone(DEFAULTS.prices), settings.prices || {});
   settings.buffaloAdd = Object.assign(clone(DEFAULTS.buffaloAdd), settings.buffaloAdd || {});
+  settings.costs = settings.costs || {};
   var saved = load('ls.saved', []);
 
   var state = { type: 'duffle', size: 'M', material: 'cow', photos: [], editingId: null, titleEdited: false };
@@ -450,7 +508,27 @@
     var t = $('toast'); t.textContent = msg; t.classList.add('show');
     clearTimeout(toast._t); toast._t = setTimeout(function () { t.classList.remove('show'); }, 1800);
   }
-  function money(n) { return '$' + Number(n).toFixed(2).replace(/\.00$/, ''); }
+  function money(n) {
+    var v = Number(n) || 0, neg = v < 0;
+    return (neg ? '−£' : '£') + Math.abs(v).toFixed(2).replace(/\.00$/, '');
+  }
+  function vnd(n) { return Math.round(n).toLocaleString('en-GB') + ' ₫'; }
+  function parseVnd(s) { var d = String(s || '').replace(/[^\d]/g, ''); return d ? Number(d) : 0; }
+  function costKey() { return state.type + '-' + state.size + '-' + state.material; }
+
+  /* Profit after VAT, eBay fees, shipping and buy cost (converted from VND). */
+  function profitFor(price, buyVnd) {
+    var r = (Number(settings.vatRate) || 0) / 100;
+    var keep = settings.vatMode === 'flat' ? 1 - r : 1 / (1 + r);   // share of price left after VAT
+    var vat = price * (1 - keep);
+    var f = (Number(settings.feePct) || 0) / 100, fixed = Number(settings.feeFixed) || 0, ship = Number(settings.shipCost) || 0;
+    var fees = price * f + fixed;
+    var cost = buyVnd > 0 ? buyVnd / (Number(settings.vndPerGbp) || 1) : 0;
+    var profit = price - vat - fees - ship - cost;
+    var m = (Number(settings.targetMargin) || 0) / 100, denom = keep - f - m;
+    var target = denom > 0 ? Math.ceil((cost + ship + fixed) / denom) : null;
+    return { vat: vat, fees: fees, ship: ship, cost: cost, profit: profit, margin: price > 0 ? profit / price : 0, target: target, net: price - vat };
+  }
 
   /* ---------- tiles ---------- */
   function tile(group, value, title, sub, checked, extra) {
@@ -484,6 +562,8 @@
     if (n === 'type' || n === 'size' || n === 'material') {
       state[n] = e.target.value;
       state.titleEdited = false;
+      var remembered = settings.costs[costKey()];
+      $('buyVnd').value = remembered ? remembered.toLocaleString('en-GB') : '';
       renderTiles();
       generate();
     }
@@ -564,10 +644,15 @@
   }
 
   /* ---------- generator ---------- */
-  var FIELDS = ['grain', 'finish', 'color', 'hardware', 'lining', 'condition', 'qty', 'priceOverride', 'notes'];
+  var FIELDS = ['grain', 'finish', 'color', 'hardware', 'lining', 'condition', 'qty', 'priceOverride', 'buyVnd', 'notes'];
   FIELDS.forEach(function (f) {
     $(f).addEventListener('input', function () {
-      if (f !== 'qty' && f !== 'priceOverride' && f !== 'notes') state.titleEdited = false;
+      if (f === 'buyVnd') {
+        var v = parseVnd($(f).value);
+        if (v) settings.costs[costKey()] = v; else delete settings.costs[costKey()];
+        store('ls.settings', settings);
+      }
+      if (f !== 'qty' && f !== 'priceOverride' && f !== 'notes' && f !== 'buyVnd') state.titleEdited = false;
       generate();
     });
   });
@@ -714,10 +799,36 @@
       ? 'Manual price (suggested ' + money(auto) + ')'
       : t.label + ' ' + s.label + ' ' + money(base) + (state.material === 'buffalo' ? ' + buffalo ' + money(settings.buffaloAdd[state.type]) : '');
     $('outSku').textContent = 'SKU ' + sku + ' · Qty ' + current.qty;
+    renderProfit(price, parseVnd(o.buyVnd));
     if (!state.titleEdited) $('outTitle').value = title;
     updateCount();
     $('outSpecs').innerHTML = specs.map(function (r) { return '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>'; }).join('');
     $('outPreview').srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#fff">' + current.html + '</body>';
+  }
+  function renderProfit(price, buy) {
+    var p = profitFor(price, buy), vr = Number(settings.vatRate) || 0;
+    current.buyVnd = buy; current.cost = p.cost; current.profit = p.profit; current.margin = p.margin;
+    $('buyHint').textContent = buy ? '≈ ' + money(p.cost) + ' at ' + vnd(settings.vndPerGbp) + ' per £1' : 'Saved for this product, size and hide';
+    var row = function (k, v, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + k + '</th><td>' + v + '</td></tr>'; };
+    var html = row('Sale price', money(price)) +
+      row('VAT ' + vr + '%', money(-p.vat));
+    if (p.fees) html += row('eBay fees', money(-p.fees));
+    if (p.ship) html += row('Shipping', money(-p.ship));
+    if (buy) {
+      html += row('Buy price', money(-p.cost) + ' <span class="muted">(' + vnd(buy) + ')</span>');
+      html += row('Profit', money(p.profit) + ' <span class="pill ' + (p.profit <= 0 ? 'bad' : p.margin * 100 < (Number(settings.targetMargin) || 0) ? 'warn' : 'good') + '">' + (p.margin * 100).toFixed(1) + '% margin</span>', 'total');
+    } else {
+      html += row('After VAT', money(p.net), 'total');
+    }
+    $('outProfit').innerHTML = html;
+    var tgt = $('outTarget');
+    if (buy && p.target) {
+      tgt.innerHTML = 'For a ' + settings.targetMargin + '% margin, list at <b>' + money(p.target) + '</b> <button class="btn small" type="button" id="useTarget">Use this price</button>';
+      tgt.hidden = false;
+      $('useTarget').onclick = function () { $('priceOverride').value = p.target; generate(); toast('Price set to ' + money(p.target)); };
+    } else if (!buy) {
+      tgt.textContent = 'Enter the buy price in VND to see your profit.'; tgt.hidden = false;
+    } else { tgt.hidden = true; }
   }
   function updateCount() {
     var n = $('outTitle').value.length, c = $('titleCount');
@@ -807,7 +918,7 @@
     if (!saved.length) { ul.innerHTML = '<li class="empty" style="display:block;border:0">No saved listings yet. Saved listings stay in this browser.</li>'; return; }
     ul.innerHTML = saved.map(function (r) {
       return '<li><img class="sthumb" alt="" src="' + (r.thumb || 'data:image/gif;base64,R0lGODlhAQABAAAAACw=') + '">' +
-        '<div style="min-width:0"><div class="st">' + esc(r.title) + '</div><div class="sm">' + esc(r.sku) + ' · ' + money(r.price) + ' · ' + new Date(r.date).toLocaleDateString() + '</div></div>' +
+        '<div style="min-width:0"><div class="st">' + esc(r.title) + '</div><div class="sm">' + esc(r.sku) + ' · ' + money(r.price) + (r.buyVnd ? ' · profit ' + money(profitFor(r.price, r.buyVnd).profit) : '') + ' · ' + new Date(r.date).toLocaleDateString() + '</div></div>' +
         '<div class="sa"><button class="btn small" type="button" data-open="' + r.id + '">Open</button>' +
         '<button class="btn small ghost" type="button" data-del="' + r.id + '" aria-label="Delete">✕</button></div></li>';
     }).join('');
@@ -834,10 +945,11 @@
   });
   $('exportCsv').addEventListener('click', function () {
     if (!saved.length) { toast('Nothing saved yet'); return; }
-    var cols = ['SKU', 'Title', 'Price', 'Quantity', 'Condition', 'Product', 'Size', 'Material', 'Colour', 'Finish', 'Description HTML'];
+    var cols = ['SKU', 'Title', 'Price (GBP)', 'Buy price (VND)', 'Buy price (GBP)', 'Profit (GBP)', 'Margin %', 'Quantity', 'Condition', 'Product', 'Size', 'Material', 'Colour', 'Finish', 'Description HTML'];
     var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
     var lines = [cols.join(',')].concat(saved.map(function (r) {
-      return [r.sku, r.title, r.price, r.qty, r.opts.condition, TYPES[r.type].label, TYPES[r.type].sizes[r.size].label,
+      var pf = profitFor(r.price, r.buyVnd || 0);
+      return [r.sku, r.title, r.price, r.buyVnd || '', r.buyVnd ? pf.cost.toFixed(2) : '', r.buyVnd ? pf.profit.toFixed(2) : '', r.buyVnd ? (pf.margin * 100).toFixed(1) : '', r.qty, r.opts.condition, TYPES[r.type].label, TYPES[r.type].sizes[r.size].label,
         MATERIALS[r.material].label, r.opts.color, r.opts.finish, r.html].map(q).join(',');
     }));
     var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' });
@@ -849,6 +961,7 @@
     state.photos.forEach(function (p) { URL.revokeObjectURL(p.url); });
     state.photos = []; state.editingId = null; state.titleEdited = false;
     $('notes').value = ''; $('priceOverride').value = ''; $('qty').value = 1;
+    var rc = settings.costs[costKey()]; $('buyVnd').value = rc ? rc.toLocaleString('en-GB') : '';
     renderThumbs(); $('colorSuggest').hidden = true; generate();
     toast('Ready for a new listing');
   });
@@ -863,6 +976,13 @@
     $('addBufBackpack').value = settings.buffaloAdd.backpack;
     $('setShipping').value = settings.shipping;
     $('setReturns').value = settings.returns;
+    $('setRate').value = settings.vndPerGbp;
+    $('setTarget').value = settings.targetMargin;
+    $('setVatRate').value = settings.vatRate;
+    $('setVatMode').value = settings.vatMode;
+    $('setFeePct').value = settings.feePct;
+    $('setFeeFixed').value = settings.feeFixed;
+    $('setShipCost').value = settings.shipCost;
     $('nameIdeas').innerHTML = NAME_IDEAS.map(function (n) { return '<button class="btn small" type="button" data-name="' + esc(n) + '">' + esc(n) + '</button>'; }).join('');
     var html = '<tr><th>Product</th><th>Size</th><th>Cowhide price</th><th>Buffalo price</th></tr>';
     Object.keys(TYPES).forEach(function (t) {
@@ -882,6 +1002,13 @@
     settings.buffaloAdd.backpack = Number($('addBufBackpack').value) || 0;
     settings.shipping = $('setShipping').value.trim();
     settings.returns = $('setReturns').value.trim();
+    settings.vndPerGbp = Number($('setRate').value) || DEFAULTS.vndPerGbp;
+    settings.targetMargin = Number($('setTarget').value) || 0;
+    settings.vatRate = $('setVatRate').value === '' ? DEFAULTS.vatRate : Number($('setVatRate').value) || 0;
+    settings.vatMode = $('setVatMode').value;
+    settings.feePct = Number($('setFeePct').value) || 0;
+    settings.feeFixed = Number($('setFeeFixed').value) || 0;
+    settings.shipCost = Number($('setShipCost').value) || 0;
     document.querySelectorAll('[data-pt]').forEach(function (i) { settings.prices[i.dataset.pt][i.dataset.ps] = Number(i.value) || 0; });
     document.querySelectorAll('.bufp').forEach(function (td) { td.textContent = money(priceFor(td.dataset.bt, td.dataset.bs, 'buffalo')); });
     store('ls.settings', settings);
@@ -897,10 +1024,11 @@
   $('closeSettings').addEventListener('click', function () { dlg.close(); });
   $('resetSettings').addEventListener('click', function () {
     if (!confirm('Restore default name, prices and policies?')) return;
-    settings = clone(DEFAULTS); store('ls.settings', settings); fillSettings(); readSettings();
+    var keepCosts = settings.costs; settings = clone(DEFAULTS); settings.costs = keepCosts || {}; store('ls.settings', settings); fillSettings(); readSettings();
   });
 
   /* ---------- init ---------- */
+  var rc0 = settings.costs[costKey()]; if (rc0) $('buyVnd').value = rc0.toLocaleString('en-GB');
   applyBrand();
   renderTiles();
   renderThumbs();
