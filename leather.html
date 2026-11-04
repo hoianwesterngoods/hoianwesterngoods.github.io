@@ -197,6 +197,15 @@
   .size-table td.na { color: var(--muted); }
   .size-table td.calc { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink); }
 
+  .detail-list { display: grid; grid-template-columns: minmax(0, 7.5rem) minmax(0, 1fr); gap: .45rem .9rem; font-size: .92rem; margin: 0; }
+  .detail-list dt { color: var(--muted); }
+  .detail-list dd { margin: 0; font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+  .detail-list dd.wait { color: var(--muted); font-weight: 400; font-style: italic; }
+  .detail-list dd ul { list-style: disc; padding-left: 1.1rem; font-weight: 400; }
+  details.fix { margin-top: 1rem; border-top: 1px solid var(--line); padding-top: .7rem; }
+  details.fix summary { cursor: pointer; color: var(--muted); font-size: .85rem; }
+  details.fix[open] summary { margin-bottom: .8rem; }
+
   /* saved */
   .saved-list li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: .75rem; align-items: center; padding: .6rem 0; border-bottom: 1px solid var(--line); }
   .saved-list li:last-child { border-bottom: 0; }
@@ -281,35 +290,38 @@
 
     <div class="card">
       <span class="step">Step 3</span>
-      <h2>Details</h2>
-      <p class="hint" id="detailsHint">These fill the item specifics and description.</p>
+      <h2>Price &amp; stock</h2>
       <div class="grid2">
-        <div class="field"><label for="grain">Grain</label>
-          <select id="grain"><option>Full Grain</option><option>Top Grain</option></select></div>
-        <div class="field"><label for="finish">Finish</label>
-          <input id="finish" list="finishList" value="Crazy Horse" autocomplete="off"><datalist id="finishList"><option value="Crazy Horse"><option value="Oil Pull-Up"><option value="Vintage Distressed"><option value="Smooth"><option value="Pebbled"><option value="Waxed"><option value="Burnished"></datalist></div>
-        <div class="field"><label for="color">Colour</label>
-          <input id="color" list="colorList" value="Dark Brown" autocomplete="off"><datalist id="colorList"><option value="Dark Brown"><option value="Brown"><option value="Cognac"><option value="Tan"><option value="Coffee"><option value="Chocolate"><option value="Black"><option value="Burgundy"><option value="Oxblood"><option value="Chestnut"><option value="Honey"><option value="Olive"><option value="Navy"><option value="Grey"></datalist></div>
-        <div class="field"><label for="hardware">Hardware</label>
-          <input id="hardware" list="hardwareList" value="Antique Brass" autocomplete="off"><datalist id="hardwareList"><option value="Antique Brass"><option value="Solid Brass"><option value="Gunmetal"><option value="Nickel"><option value="Silver"><option value="Black Matte"><option value="Copper"></datalist></div>
-        <div class="field"><label for="lining">Lining</label>
-          <select id="lining"><option>Heavy Cotton Canvas</option><option>Suede</option><option>Unlined</option></select></div>
-        <div class="field"><label for="condition">Condition</label>
-          <select id="condition"><option>New with tags</option><option>New without tags</option></select></div>
+        <div class="field"><label for="buyVnd">Buy price (VND)</label>
+          <input id="buyVnd" type="text" inputmode="numeric" placeholder="e.g. 1,850,000" autocomplete="off">
+          <div class="field-hint" id="buyHint"></div></div>
         <div class="field"><label for="qty">Quantity</label>
           <input id="qty" type="number" min="1" value="1"></div>
+        <div class="field"><label for="condition">Condition</label>
+          <select id="condition"><option>New with tags</option><option>New without tags</option></select></div>
         <div class="field"><label for="priceOverride">Price override (£)</label>
           <input id="priceOverride" type="number" min="0" step="1" placeholder="Auto"></div>
       </div>
-      <div class="field" style="margin-top:.8rem"><label for="buyVnd">Buy price (VND)</label>
-        <input id="buyVnd" type="text" inputmode="numeric" placeholder="e.g. 1,850,000" autocomplete="off">
-        <div class="field-hint" id="buyHint"></div></div>
-      <div class="field" style="margin-top:.8rem"><label for="closure">Closure</label>
-        <input id="closure" type="text" autocomplete="off"></div>
-      <div class="field" style="margin-top:.8rem"><label for="features">Features (one per line)</label>
-        <textarea id="features" rows="5"></textarea></div>
-      <div class="field" style="margin-top:.8rem"><label for="notes">Description (optional)</label>
-        <textarea id="notes" placeholder="e.g. Hand-stitched with waxed thread, detachable shoulder strap, shoe compartment…"></textarea></div>
+    </div>
+
+    <div class="card">
+      <h2>Details from your photos</h2>
+      <p class="hint" id="detailsHint">Filled in automatically when you add photos. Every bag is listed as full grain leather.</p>
+      <dl class="detail-list" id="detailSummary"></dl>
+      <details class="fix">
+        <summary>Correct a detail</summary>
+        <input type="hidden" id="grain" value="Full Grain">
+        <div class="grid2">
+          <div class="field"><label for="color">Colour</label><input id="color" autocomplete="off"></div>
+          <div class="field"><label for="finish">Finish</label><input id="finish" autocomplete="off"></div>
+          <div class="field"><label for="hardware">Hardware</label><input id="hardware" autocomplete="off"></div>
+          <div class="field"><label for="lining">Lining</label>
+            <select id="lining"><option>Heavy Cotton Canvas</option><option>Suede</option><option>Unlined</option></select></div>
+        </div>
+        <div class="field" style="margin-top:.8rem"><label for="closure">Closure</label><input id="closure" type="text" autocomplete="off"></div>
+        <div class="field" style="margin-top:.8rem"><label for="features">Features (one per line)</label><textarea id="features" rows="5"></textarea></div>
+        <div class="field" style="margin-top:.8rem"><label for="notes">Description</label><textarea id="notes"></textarea></div>
+      </details>
     </div>
 
     <div class="card">
@@ -810,6 +822,8 @@
     var box = $('aiBox');
     box.hidden = false;
     box.className = 'ai' + (kind ? ' ' + kind : '');
+    state.aiBusy = kind === 'busy';
+    if (current.opts) renderSummary(TYPES[state.type], current.opts);
     $('aiMsg').textContent = msg;
     $('aiRetry').hidden = !retry;
     $('aiStop').hidden = kind !== 'busy';
@@ -862,18 +876,17 @@
           var prompt = [
             'You are helping a small leather goods business write an eBay listing.',
             'The ' + blobs.length + ' photo(s) show ONE handmade leather bag from different angles.',
-            'The seller has already chosen the hide (' + MATERIALS[state.material].label + ') and the size (' + TYPES[state.type].sizes[state.size].label + '), so do not judge those.',
+            'Every bag is premium full grain leather. The seller has already chosen the hide (' + MATERIALS[state.material].label + ') and the size (' + TYPES[state.type].sizes[state.size].label + '), so do not judge those.',
             'Describe only what you can actually see. Reply with only a JSON object, no other text:',
             '{',
             '  "type": "duffle" or "backpack",',
-            '  "grain": "Full Grain" if natural grain, pores, scars or colour variation show on the surface, or "Top Grain" if it looks sanded, even or coated,',
             '  "color": the leather colour, 1-3 words; use one of ' + JSON.stringify(optionsOf('color')) + ' when it fits, otherwise your own name,',
             '  "finish": use one of ' + JSON.stringify(optionsOf('finish')) + ' when it fits, otherwise your own 1-3 words,',
             '  "hardware": metal colour of buckles and zips; use one of ' + JSON.stringify(optionsOf('hardware')) + ' when it fits, otherwise your own 1-3 words,',
             '  "lining": exactly one of ' + JSON.stringify(optionsOf('lining')) + ',',
             '  "closure": short phrase, e.g. "Full-length zip",',
             '  "features": 3 to 7 short features visible in the photos, e.g. "Detachable padded shoulder strap",',
-            '  "description": 2 plain sentences describing the look and character of this bag for buyers, no hype, no sizes or prices; if you mention colour, finish or grain, use exactly the words you gave above and no other colour words,',
+            '  "description": 2 plain sentences describing the look and character of this bag for buyers, no hype, no sizes or prices; if you mention colour or finish, use exactly the words you gave above and no other colour words; never call the leather anything other than full grain,',
             '  "unsure": list of the field names above you could not see clearly',
             '}',
             'If the lining is not visible, use "Heavy Cotton Canvas" and add "lining" to unsure.'
@@ -885,7 +898,7 @@
             var code = e && e.code;
             if (code === 'cancelled') { if (aiCtl === ctl) showAi('', 'Stopped. Your details were not changed.', true); return; }
             if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed', 'images_unavailable'].indexOf(code) >= 0) {
-              aiOff = true; $('aiBox').hidden = true; detectColor(); return;
+              aiOff = true; state.aiBusy = false; $('aiBox').hidden = true; detectColor(); return;
             }
             var msg = code === 'rate_limited' ? 'Claude is busy or your usage limit is reached. Try again in a few minutes.'
               : code === 'image_rejected' ? 'One of the photos could not be read. Remove it and try again.'
@@ -909,7 +922,7 @@
     }
     if (r.type === 'duffle' || r.type === 'backpack') filled.push('product');
     var missed = [];
-    [['grain', 'grain'], ['color', 'colour'], ['finish', 'finish'], ['hardware', 'hardware'], ['lining', 'lining']].forEach(function (f) {
+    [['color', 'colour'], ['finish', 'finish'], ['hardware', 'hardware'], ['lining', 'lining']].forEach(function (f) {
       if (pick(f[0], r[f[0]])) filled.push(f[1]); else missed.push(f[1]);
     });
     if (typeof r.closure === 'string' && r.closure.trim()) { $('closure').value = r.closure.trim().slice(0, 60); filled.push('closure'); }
@@ -943,10 +956,9 @@
       r /= n; g /= n; b /= n;
       var name = colourName(r, g, b);
       box.innerHTML = '<span class="swatch" style="background:rgb(' + [r, g, b].map(Math.round).join(',') + ')"></span>' +
-        'Looks like <b>' + name + '</b> from your main photo.' +
-        ' <button class="btn small" type="button" id="useColor">Use it</button>';
+        'Colour set to <b>' + name + '</b> from your main photo.';
       box.hidden = false;
-      $('useColor').onclick = function () { $('color').value = name; state.titleEdited = false; generate(); toast('Colour set to ' + name); };
+      $('color').value = name; state.titleEdited = false; generate();
     }).catch(function () { box.hidden = true; });
   }
   function colourName(r, g, b) {
@@ -1069,7 +1081,7 @@
         '<h2 style="font-family:Georgia,serif;font-weight:normal;font-size:22px;line-height:1.35;margin:0 0 14px">' + esc(title) + '</h2>' +
         '<p style="margin:0 0 14px;line-height:1.65">' + esc(m.copy) + '</p>' +
         '<p style="margin:0 0 18px;line-height:1.65">Our ' + esc(s.label === 'XL' ? 'XL' : s.label.toLowerCase()) + ' ' + esc(t.label.toLowerCase()) +
-          ' is finished in ' + esc(o.color.toLowerCase()) + ' ' + esc(o.finish.toLowerCase()) + ' ' + esc(o.grain.toLowerCase()) +
+          ' is made from ' + esc([o.color, o.finish, 'full grain'].filter(Boolean).join(' ').toLowerCase()) +
           ' leather — ideal for ' + esc(s.use.charAt(0).toLowerCase() + s.use.slice(1)) + (s.laptop ? ', with room for a laptop up to ' + esc(s.laptop) : '') + '.</p>' +
         notes +
         h('Features') +
@@ -1123,10 +1135,26 @@
       : t.label + ' ' + s.label + ' ' + money(base) + (state.material === 'buffalo' ? ' + buffalo ' + money(settings.buffaloAdd[state.type]) : '');
     $('outSku').textContent = 'SKU ' + sku + ' · Qty ' + current.qty;
     renderProfit(price, parseVnd(o.buyVnd));
+    renderSummary(t, o);
     if (!state.titleEdited) $('outTitle').value = title;
     updateCount();
     $('outSpecs').innerHTML = specs.map(function (r) { return '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>'; }).join('');
     $('outPreview').srcdoc = '<!doctype html><meta charset="utf-8"><body style="margin:0;background:#fff">' + current.html + '</body>';
+  }
+  function renderSummary(t, o) {
+    var waiting = !state.photos.length ? 'Add photos' : state.aiBusy ? 'Reading photos…' : 'Not found in photos';
+    var feats = o.features.split('\n').map(function (x) { return x.trim(); }).filter(Boolean);
+    var item = function (k, v, list) {
+      if (!v) return '<dt>' + k + '</dt><dd class="wait">' + waiting + '</dd>';
+      return '<dt>' + k + '</dt><dd>' + (list ? '<ul>' + v.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : esc(v)) + '</dd>';
+    };
+    var fromPhotos = state.detailsSource === 'photos' || state.detailsSource === 'saved' || state.detailsSource === 'user';
+    $('detailSummary').innerHTML =
+      '<dt>Leather</dt><dd>Full grain ' + esc(MATERIALS[state.material].short.toLowerCase()) + '</dd>' +
+      '<dt>Product</dt><dd>' + esc(t.label) + '</dd>' +
+      item('Colour', o.color) + item('Finish', o.finish) + item('Hardware', o.hardware) +
+      item('Lining', fromPhotos ? o.lining : '') + item('Closure', fromPhotos ? o.closure : '') +
+      item('Features', fromPhotos && feats.length ? feats : '', true);
   }
   function renderProfit(price, buy) {
     var p = profitFor(price, buy), vr = Number(settings.vatRate) || 0;
@@ -1264,6 +1292,7 @@
       state.type = r.type; state.size = r.size; state.material = r.material; state.editingId = r.id;
       current.sku = r.sku;
       FIELDS.forEach(function (f) { if (r.opts && f in r.opts) $(f).value = r.opts[f]; });
+      $('grain').value = 'Full Grain';
       if (!r.opts || !r.opts.features) fillTypeDefaults(); else state.detailsSource = 'saved';
       state.titleEdited = !!r.titleEdited;
       if (state.titleEdited) $('outTitle').value = r.title;
@@ -1291,7 +1320,7 @@
     state.photos = []; state.editingId = null; state.titleEdited = false;
     $('notes').value = ''; $('priceOverride').value = ''; $('qty').value = 1;
     var rc = settings.costs[costKey()]; $('buyVnd').value = rc ? rc.toLocaleString('en-GB') : '';
-    fillTypeDefaults(); state.aiNotes = ''; if (aiCtl) aiCtl.abort(); $('aiBox').hidden = true;
+    fillTypeDefaults(); state.aiNotes = ''; $('color').value = ''; $('finish').value = ''; $('hardware').value = ''; if (aiCtl) aiCtl.abort(); $('aiBox').hidden = true;
     renderThumbs(); $('colorSuggest').hidden = true; generate();
     toast('Ready for a new listing');
   });
