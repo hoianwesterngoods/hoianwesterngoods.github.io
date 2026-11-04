@@ -287,11 +287,11 @@
         <div class="field"><label for="grain">Grain</label>
           <select id="grain"><option>Full Grain</option><option>Top Grain</option></select></div>
         <div class="field"><label for="finish">Finish</label>
-          <select id="finish"><option>Crazy Horse</option><option>Oil Pull-Up</option><option>Vintage Distressed</option><option>Smooth</option><option>Pebbled</option></select></div>
+          <input id="finish" list="finishList" value="Crazy Horse" autocomplete="off"><datalist id="finishList"><option value="Crazy Horse"><option value="Oil Pull-Up"><option value="Vintage Distressed"><option value="Smooth"><option value="Pebbled"><option value="Waxed"><option value="Burnished"></datalist></div>
         <div class="field"><label for="color">Colour</label>
-          <select id="color"><option>Dark Brown</option><option>Brown</option><option>Cognac</option><option>Tan</option><option>Coffee</option><option>Chocolate</option><option>Black</option></select></div>
+          <input id="color" list="colorList" value="Dark Brown" autocomplete="off"><datalist id="colorList"><option value="Dark Brown"><option value="Brown"><option value="Cognac"><option value="Tan"><option value="Coffee"><option value="Chocolate"><option value="Black"><option value="Burgundy"><option value="Oxblood"><option value="Chestnut"><option value="Honey"><option value="Olive"><option value="Navy"><option value="Grey"></datalist></div>
         <div class="field"><label for="hardware">Hardware</label>
-          <select id="hardware"><option>Antique Brass</option><option>Solid Brass</option><option>Gunmetal</option><option>Nickel</option></select></div>
+          <input id="hardware" list="hardwareList" value="Antique Brass" autocomplete="off"><datalist id="hardwareList"><option value="Antique Brass"><option value="Solid Brass"><option value="Gunmetal"><option value="Nickel"><option value="Silver"><option value="Black Matte"><option value="Copper"></datalist></div>
         <div class="field"><label for="lining">Lining</label>
           <select id="lining"><option>Heavy Cotton Canvas</option><option>Suede</option><option>Unlined</option></select></div>
         <div class="field"><label for="condition">Condition</label>
@@ -825,12 +825,23 @@
       return new Promise(function (res) { c.toBlob(res, 'image/jpeg', 0.85); });
     }).catch(function () { return null; });
   }
-  function optionsOf(id) { return Array.prototype.map.call($(id).options, function (o) { return o.value; }); }
+  function optionsOf(id) {
+    var el = $(id), src = el.tagName === 'SELECT' ? el : document.getElementById(el.getAttribute('list'));
+    return src ? Array.prototype.map.call(src.options, function (o) { return o.value; }) : [];
+  }
+  function titleCase(s) { return s.toLowerCase().replace(/(^|[\s-])([a-z])/g, function (m, a, b) { return a + b.toUpperCase(); }); }
   function pick(id, v) {
     if (typeof v !== 'string') return false;
-    var opts = optionsOf(id), hit = opts.filter(function (o) { return o.toLowerCase() === v.trim().toLowerCase(); })[0];
-    if (hit) { $(id).value = hit; return true; }
-    return false;
+    var want = v.trim().toLowerCase(); if (!want) return false;
+    var opts = optionsOf(id);
+    var hit = opts.filter(function (o) { return o.toLowerCase() === want; })[0];
+    if ($(id).tagName === 'SELECT') {
+      hit = hit || opts.filter(function (o) { var l = o.toLowerCase(); return want.indexOf(l) >= 0 || l.indexOf(want) >= 0; })[0];
+      if (hit) { $(id).value = hit; return true; }
+      return false;
+    }
+    $(id).value = hit || titleCase(v.trim().slice(0, 30));   // free-text field: keep Claude's own word if none fits
+    return true;
   }
 
   function readPhotos() {
@@ -855,13 +866,14 @@
             'Describe only what you can actually see. Reply with only a JSON object, no other text:',
             '{',
             '  "type": "duffle" or "backpack",',
-            '  "color": one of ' + JSON.stringify(optionsOf('color')) + ',',
-            '  "finish": one of ' + JSON.stringify(optionsOf('finish')) + ',',
-            '  "hardware": one of ' + JSON.stringify(optionsOf('hardware')) + ',',
-            '  "lining": one of ' + JSON.stringify(optionsOf('lining')) + ',',
+            '  "grain": "Full Grain" if natural grain, pores, scars or colour variation show on the surface, or "Top Grain" if it looks sanded, even or coated,',
+            '  "color": the leather colour, 1-3 words; use one of ' + JSON.stringify(optionsOf('color')) + ' when it fits, otherwise your own name,',
+            '  "finish": use one of ' + JSON.stringify(optionsOf('finish')) + ' when it fits, otherwise your own 1-3 words,',
+            '  "hardware": metal colour of buckles and zips; use one of ' + JSON.stringify(optionsOf('hardware')) + ' when it fits, otherwise your own 1-3 words,',
+            '  "lining": exactly one of ' + JSON.stringify(optionsOf('lining')) + ',',
             '  "closure": short phrase, e.g. "Full-length zip",',
             '  "features": 3 to 7 short features visible in the photos, e.g. "Detachable padded shoulder strap",',
-            '  "description": 2 plain sentences describing the look and character of this bag for buyers, no hype, no sizes or prices,',
+            '  "description": 2 plain sentences describing the look and character of this bag for buyers, no hype, no sizes or prices; if you mention colour, finish or grain, use exactly the words you gave above and no other colour words,',
             '  "unsure": list of the field names above you could not see clearly',
             '}',
             'If the lining is not visible, use "Heavy Cotton Canvas" and add "lining" to unsure.'
@@ -896,18 +908,24 @@
       $('buyVnd').value = rem ? rem.toLocaleString('en-GB') : '';
     }
     if (r.type === 'duffle' || r.type === 'backpack') filled.push('product');
-    [['color', 'colour'], ['finish', 'finish'], ['hardware', 'hardware'], ['lining', 'lining']].forEach(function (f) {
-      if (pick(f[0], r[f[0]])) filled.push(f[1]);
+    var missed = [];
+    [['grain', 'grain'], ['color', 'colour'], ['finish', 'finish'], ['hardware', 'hardware'], ['lining', 'lining']].forEach(function (f) {
+      if (pick(f[0], r[f[0]])) filled.push(f[1]); else missed.push(f[1]);
     });
     if (typeof r.closure === 'string' && r.closure.trim()) { $('closure').value = r.closure.trim().slice(0, 60); filled.push('closure'); }
     var feats = Array.isArray(r.features) ? r.features.filter(function (x) { return typeof x === 'string' && x.trim(); }).slice(0, 8).map(function (x) { return x.trim().slice(0, 90); }) : [];
     if (feats.length) { $('features').value = feats.join('\n'); filled.push('features'); }
-    if (typeof r.description === 'string' && r.description.trim() && !$('notes').value.trim()) { $('notes').value = r.description.trim().slice(0, 500); filled.push('description'); }
+    // Replace the description if it is empty or still the one Claude wrote last time (not edited by you).
+    var curNotes = $('notes').value.trim();
+    if (typeof r.description === 'string' && r.description.trim() && (!curNotes || curNotes === state.aiNotes)) {
+      state.aiNotes = r.description.trim().slice(0, 500); $('notes').value = state.aiNotes; filled.push('description');
+    }
     state.detailsSource = 'photos';
     state.titleEdited = false;
     renderTiles(); generate();
     var unsure = Array.isArray(r.unsure) ? r.unsure.filter(function (x) { return typeof x === 'string'; }).map(function (x) { return x === 'color' ? 'colour' : x; }) : [];
     showAi('', 'Filled in from your photos: ' + (filled.join(', ') || 'nothing') + '.' +
+      (missed.length ? ' Not changed: ' + missed.join(', ') + '.' : '') +
       (unsure.length ? ' Check: ' + unsure.slice(0, 5).join(', ') + ' (not clear in the photos).' : ' Check the details below before you list.'), true);
   }
 
@@ -1273,7 +1291,7 @@
     state.photos = []; state.editingId = null; state.titleEdited = false;
     $('notes').value = ''; $('priceOverride').value = ''; $('qty').value = 1;
     var rc = settings.costs[costKey()]; $('buyVnd').value = rc ? rc.toLocaleString('en-GB') : '';
-    fillTypeDefaults(); if (aiCtl) aiCtl.abort(); $('aiBox').hidden = true;
+    fillTypeDefaults(); state.aiNotes = ''; if (aiCtl) aiCtl.abort(); $('aiBox').hidden = true;
     renderThumbs(); $('colorSuggest').hidden = true; generate();
     toast('Ready for a new listing');
   });
