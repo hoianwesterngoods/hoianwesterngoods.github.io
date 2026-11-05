@@ -1315,7 +1315,7 @@
 
   function rand(seed) { return function () { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }; }
 
-  /* Branded backdrop: seamless charcoal grey with soft light and the gold logo. */
+  /* Branded backdrop: charcoal wall with warm light and gold logo, wooden table top. */
   function drawBackdrop(style) {
     var key = style + '|' + settings.brand;
     if (styleState.backdrops[key]) return Promise.resolve(styleState.backdrops[key]);
@@ -1328,17 +1328,16 @@
         x.fillStyle = g0; x.fillRect(0, 0, W, H);
         styleState.backdrops[key] = c; return c;
       }
-      // seamless charcoal backdrop with warm light from above and a soft pool of light under the bag
-      var g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#323335'); g.addColorStop(0.6, '#2a2b2d'); g.addColorStop(1, '#202123');
-      x.fillStyle = g; x.fillRect(0, 0, W, H);
-      var spot = x.createRadialGradient(W * 0.45, -H * 0.05, 40, W * 0.47, H * 0.12, W * 0.8);
-      spot.addColorStop(0, 'rgba(240,232,220,0.24)'); spot.addColorStop(0.45, 'rgba(230,222,210,0.07)'); spot.addColorStop(1, 'rgba(0,0,0,0)');
-      x.fillStyle = spot; x.fillRect(0, 0, W, H);
-      var pool = x.createRadialGradient(W / 2, H * 0.8, 40, W / 2, H * 0.8, W * 0.55);
-      pool.addColorStop(0, 'rgba(235,235,235,0.07)'); pool.addColorStop(1, 'rgba(235,235,235,0)');
-      x.fillStyle = pool; x.fillRect(0, 0, W, H);
-      var tex = x.getImageData(0, 0, W, H), td = tex.data;   // fine plaster texture
-      for (var i = 0; i < td.length; i += 4) { var nz = (r() - 0.5) * 9; td[i] += nz; td[i + 1] += nz; td[i + 2] += nz; }
+      var tableY = Math.round(H * 0.6);
+      // wall
+      var g = x.createLinearGradient(0, 0, 0, tableY); g.addColorStop(0, '#2a2927'); g.addColorStop(1, '#1d1c1b');
+      x.fillStyle = g; x.fillRect(0, 0, W, tableY);
+      var spot = x.createRadialGradient(W * 0.42, -H * 0.05, 40, W * 0.45, H * 0.1, W * 0.75);
+      spot.addColorStop(0, 'rgba(255,214,160,0.32)'); spot.addColorStop(0.45, 'rgba(255,190,130,0.10)'); spot.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = spot; x.fillRect(0, 0, W, tableY);
+      // plaster texture
+      var tex = x.getImageData(0, 0, W, tableY), td = tex.data;
+      for (var i = 0; i < td.length; i += 4) { var nz = (r() - 0.5) * 10; td[i] += nz; td[i + 1] += nz; td[i + 2] += nz; }
       x.putImageData(tex, 0, 0);
       // logo
       var bp = brandParts(), cx = W / 2;
@@ -1359,6 +1358,21 @@
         x.fillRect(cx - tw / 2 - gap - lineW, sy - 22, lineW, 4); x.fillRect(cx + tw / 2 + gap, sy - 22, lineW, 4);
         x.restore();
       }
+      // table top
+      var tg = x.createLinearGradient(0, tableY, 0, H); tg.addColorStop(0, '#4a2c19'); tg.addColorStop(0.5, '#603a21'); tg.addColorStop(1, '#3d2414');
+      x.fillStyle = tg; x.fillRect(0, tableY, W, H - tableY);
+      for (var k = 0; k < 170; k++) {            // wood grain, wider spacing towards the front
+        var t = k / 170, yy = tableY + Math.pow(t, 1.6) * (H - tableY), amp = 2 + t * 6, ph = r() * 6.28, fq = 0.002 + r() * 0.004;
+        x.beginPath();
+        for (var xx = 0; xx <= W; xx += 20) { var y2 = yy + Math.sin(xx * fq + ph) * amp + Math.sin(xx * fq * 3.1 + ph) * amp * 0.3; if (xx) x.lineTo(xx, y2); else x.moveTo(xx, y2); }
+        x.strokeStyle = r() > 0.5 ? 'rgba(25,12,5,' + (0.12 + r() * 0.2) + ')' : 'rgba(150,95,55,' + (0.06 + r() * 0.12) + ')';
+        x.lineWidth = 1 + r() * 2.5 * (0.5 + t); x.stroke();
+      }
+      var sheen = x.createRadialGradient(W / 2, tableY + 40, 20, W / 2, tableY + 80, W * 0.6);
+      sheen.addColorStop(0, 'rgba(255,200,150,0.22)'); sheen.addColorStop(1, 'rgba(255,200,150,0)');
+      x.fillStyle = sheen; x.fillRect(0, tableY, W, H - tableY);
+      var edge = x.createLinearGradient(0, tableY - 6, 0, tableY + 14); edge.addColorStop(0, 'rgba(0,0,0,0.55)'); edge.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = edge; x.fillRect(0, tableY - 6, W, 20);
       // vignette
       var v = x.createRadialGradient(W / 2, H * 0.5, W * 0.35, W / 2, H * 0.5, W * 0.85);
       v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.5)');
