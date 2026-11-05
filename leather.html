@@ -643,16 +643,16 @@
     returns: '30-day returns accepted. Item must be unused and in original condition.',
     // Colour names Claude must choose from, each with a short description so it picks consistently.
     colours: [
-      'Oxblood Red: deep brownish red, like dried blood or dark cherry wood',
-      'Burgundy: wine red with a purple tone',
-      'Cognac: warm orange-brown, like the drink',
       'Tan: light golden brown',
       'Honey: light warm yellow-brown',
-      'Chestnut: mid reddish brown',
+      'Cognac: warm orange-brown, like the drink',
+      'Chestnut: mid brown with a reddish tint',
       'Brown: plain mid brown',
       'Dark Brown: deep brown, not red',
       'Chocolate: very dark brown, almost black',
       'Black: black',
+      'Oxblood Red: dark red with a brown cast; clearly reads as red, not brown',
+      'Burgundy: wine red with a purple tone',
       'Olive: brownish green',
       'Navy: dark blue',
       'Grey: grey'
@@ -702,6 +702,8 @@
   }
   settings.feePct = 0; settings.feeFixed = 0;   // the only eBay fee is Buyer Protection, paid by the buyer
   ['thicknessMm', 'extraPct', 'hardwareKg', 'liningKgM2', 'bp', 'shoes'].forEach(function (k) { settings[k] = Object.assign(clone(DEFAULTS[k]), settings[k] || {}); });
+  var OLD_COLOURS = ["Oxblood Red: deep brownish red, like dried blood or dark cherry wood", "Burgundy: wine red with a purple tone", "Cognac: warm orange-brown, like the drink", "Tan: light golden brown", "Honey: light warm yellow-brown", "Chestnut: mid reddish brown", "Brown: plain mid brown", "Dark Brown: deep brown, not red", "Chocolate: very dark brown, almost black", "Black: black", "Olive: brownish green", "Navy: dark blue", "Grey: grey"];
+  if (JSON.stringify(settings.colours) === JSON.stringify(OLD_COLOURS)) settings.colours = clone(DEFAULTS.colours);
   settings.sizes = settings.sizes || {};
   Object.keys(DEFAULTS.sizes).forEach(function (t) {
     settings.sizes[t] = settings.sizes[t] || {};
@@ -864,6 +866,7 @@
       state.photos.push({ file: f, url: URL.createObjectURL(f) });
     });
     renderThumbs();
+    if (files.length && state.readSet && files.length < state.photos.length) toast('Listing a different item? Tap New listing first so only its photos are read');
     if (files.length) readPhotos();
   }
   function renderThumbs() {
@@ -908,7 +911,7 @@
     $('aiRetry').hidden = !retry;
     $('aiStop').hidden = kind !== 'busy';
   }
-  $('aiRetry').addEventListener('click', function () { readPhotos(); });
+  $('aiRetry').addEventListener('click', function () { readPhotos(true); });
   $('aiStop').addEventListener('click', function () { if (aiCtl) aiCtl.abort(); });
 
   function toJpeg(url) {
@@ -946,7 +949,7 @@
     return true;
   }
 
-  function readPhotos() {
+  function readPhotos(fresh) {
     if (!state.photos.length) return;
     samplePromise.then(function (sample) {
       if (!sample || aiOff) { detectColor(); return; }
@@ -971,7 +974,8 @@
             '  "shoeStyle": only for shoes, one of ' + JSON.stringify(SHOE_STYLES) + ' or your own 1-3 words; empty for bags,',
             '  "department": only for shoes, "Men", "Women" or "Unisex Adults", judged from the style and shape,',
             '  "sole": only for shoes, e.g. "Leather sole", "Rubber sole", "Stacked leather heel with rubber sole"; empty for bags,',
-            '  "color": the leather colour, exactly one of these names (pick the closest; never invent another): ' +
+            '  "colourSeen": the leather colour in your own plain words first, judged in neutral light (e.g. "mid brown with a slight red tint"),',
+            '  "color": then exactly one of these names that best matches colourSeen (never invent another). Choose by hue: use a red name only if the leather clearly reads as red or wine rather than brown; reddish browns are Chestnut; orange browns are Cognac or Tan; plain browns are Brown, Dark Brown or Chocolate. Names: ' +
               colourList().map(function (c) { return c.name + (c.hint ? ' (' + c.hint + ')' : ''); }).join('; ') + ',',
             '  "finish": use one of ' + JSON.stringify(optionsOf('finish')) + ' when it fits, otherwise your own 1-3 words,',
             '  "hardware": metal colour of buckles, zips or eyelets (empty if none); use one of ' + JSON.stringify(optionsOf('hardware')) + ' when it fits, otherwise your own 1-3 words,',
@@ -984,7 +988,9 @@
             '}',
             'If the lining is not visible, use "Heavy Cotton Canvas" for bags or "Leather" for shoes, and add "lining" to unsure.'
           ].join('\n');
-          return sample.json(prompt, { images: blobs, signal: ctl.signal }).then(function (res) {
+          var readSet = state.photos.slice(0, n).map(function (p) { return p.url; }).join('|');
+          return sample.json(prompt, fresh ? { images: blobs, signal: ctl.signal, cache: false } : { images: blobs, signal: ctl.signal }).then(function (res) {
+            state.readSet = readSet;
             if (ctl.signal.aborted) return;
             applyPhotoDetails(res);
           }, function (e) {
@@ -992,6 +998,10 @@
             if (code === 'cancelled') { if (aiCtl === ctl) showAi('', 'Stopped. Your details were not changed.', true); return; }
             if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed', 'images_unavailable'].indexOf(code) >= 0) {
               aiOff = true; state.aiBusy = false; $('aiBox').hidden = true; detectColor(); return;
+            }
+            var nowSet = state.photos.slice(0, n).map(function (p) { return p.url; }).join('|');
+            if (state.readSet && state.readSet !== nowSet) {   // details on screen belong to other photos: don't keep them
+              $('color').value = ''; $('finish').value = ''; $('hardware').value = ''; state.detailsSource = 'default'; generate();
             }
             var msg = code === 'rate_limited' ? 'Claude is busy or your usage limit is reached. Try again in a few minutes.'
               : code === 'image_rejected' ? 'One of the photos could not be read. Remove it and try again.'
@@ -1043,6 +1053,7 @@
     renderTiles(); generate();
     var unsure = Array.isArray(r.unsure) ? r.unsure.filter(function (x) { return typeof x === 'string'; }).map(function (x) { return x === 'color' ? 'colour' : x; }) : [];
     showAi('', 'Filled in from your photos: ' + (filled.join(', ') || 'nothing') + '.' +
+      (typeof r.colourSeen === 'string' && r.colourSeen.trim() ? ' Colour: ' + $('color').value + ' (Claude saw "' + r.colourSeen.trim().slice(0, 60) + '").' : '') +
       (missed.length ? ' Not changed: ' + missed.join(', ') + '.' : '') +
       (switchedToShoes ? ' These look like shoes: pick the UK size above.' : '') +
       (unsure.length ? ' Check: ' + unsure.slice(0, 5).join(', ') + ' (not clear in the photos).' : ' Check the details below before you list.'), true);
