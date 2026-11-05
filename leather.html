@@ -1150,6 +1150,7 @@
       ['Closure', o.closure.trim() || defaultClosure(state.type)],
       ['Handmade', 'Yes'],
       ['Country of Origin', 'Vietnam'],
+      ['Strap', t === TYPES.duffle ? 'Shoulder strap included' : ''],
       ['Shoe Compartment', o.shoePocket === 'yes' ? 'Yes' : ''],
       ['Condition', o.condition]
     ];
@@ -1166,6 +1167,8 @@
     var shoe = !shoes && o.shoePocket === 'yes';
     if (shoe && !features.some(function (f) { return /shoe/i.test(f); })) features.splice(1, 0, 'Separate shoe pocket at the end');
     if (!shoe && !shoes) features = features.filter(function (f) { return !/shoe/i.test(f); });
+    // Every duffle comes with a shoulder strap, whether or not it is in the photos.
+    if (t === TYPES.duffle && !features.some(function (f) { return /shoulder strap/i.test(f); })) features.push('Shoulder strap included');
     if (o.lining !== 'Unlined') features.push(o.lining + (shoes ? ' lining' : ' interior lining'));
     if (o.hardware && !shoes) features.push(o.hardware + ' hardware throughout');
     if (shoes && o.sole && !features.some(function (f) { return /sole/i.test(f) && !/insole/i.test(f); })) features.push(o.sole);
@@ -1193,7 +1196,8 @@
           : '<p style="margin:0 0 18px;line-height:1.65">Our ' + esc(s.label === 'XL' ? 'XL' : s.label.toLowerCase()) + ' ' + esc(t.label.toLowerCase()) +
           ' is made from ' + esc([o.color, o.finish, 'full grain'].filter(Boolean).join(' ').toLowerCase()) +
           ' leather — ideal for ' + esc(s.use.charAt(0).toLowerCase() + s.use.slice(1)) + (s.laptop ? ', with room for a laptop up to ' + esc(s.laptop) : '') + '.' +
-          (shoe ? ' A separate pocket at the end keeps your shoes apart from your clothes.' : '') + '</p>') +
+          (shoe ? ' A separate pocket at the end keeps your shoes apart from your clothes.' : '') +
+          (t === TYPES.duffle ? ' Every duffle comes with a shoulder strap, so you can carry it by hand or over your shoulder.' : '') + '</p>') +
         notes +
         (settings.maker ? h('Handmade in Hoi An') + '<p style="margin:0;line-height:1.65">' + esc(settings.maker) + '</p>' : '') +
         h('Features') +
