@@ -180,6 +180,7 @@
   .pill.bad  { background: color-mix(in srgb, var(--bad) 16%, transparent); color: var(--bad); }
   .target { font-size: .85rem; color: var(--muted); margin-top: .5rem; display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
   .target b { color: var(--ink); }
+  .copy-pair { display: inline-flex; gap: .35rem; flex-wrap: wrap; justify-content: flex-end; }
   .target-btn { margin-top: .4rem; }
   .btn:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -381,7 +382,8 @@
       <div class="out-block">
         <div class="out-head">
           <span class="lbl">Description preview</span>
-          <button class="btn small" data-copy="html" type="button">Copy HTML</button>
+          <span class="copy-pair"><button class="btn small primary" data-copy="desc" type="button">Copy description</button>
+          <button class="btn small" data-copy="html" type="button">Copy HTML code</button></span>
         </div>
         <iframe class="preview" id="outPreview" sandbox title="Description preview"></iframe>
       </div>
@@ -1205,6 +1207,7 @@
         ';letter-spacing:1px;text-transform:uppercase;margin:28px 0 10px;border-bottom:1px solid ' + line + ';padding-bottom:6px">' + txt + '</h3>';
     };
     var row = function (k, v) {
+      if (v == null || String(v).trim() === '') return '';
       return '<tr><td style="padding:7px 10px;border-bottom:1px solid ' + line + ';color:' + muted + ';width:42%">' + esc(k) +
         '</td><td style="padding:7px 10px;border-bottom:1px solid ' + line + '">' + esc(v) + '</td></tr>';
     };
@@ -1352,6 +1355,47 @@
       navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
     } else { fallbackCopy(text); done(); }
   }
+  /* Plain-text version of the description, for editors that only take text (e.g. the eBay app). */
+  function descText(html) {
+    var box = document.createElement('div'); box.innerHTML = html;
+    var out = [];
+    (function walk(el) {
+      Array.prototype.forEach.call(el.children, function (c) {
+        var tag = c.tagName, txt = c.textContent.replace(/\s+/g, ' ').trim();
+        if (tag === 'H2') out.push(txt, '');
+        else if (tag === 'H3') out.push('', txt.toUpperCase());
+        else if (tag === 'P') out.push(txt, '');
+        else if (tag === 'UL') { Array.prototype.forEach.call(c.querySelectorAll('li'), function (li) { out.push('• ' + li.textContent.trim()); }); out.push(''); }
+        else if (tag === 'TABLE') { Array.prototype.forEach.call(c.querySelectorAll('tr'), function (tr) { out.push(tr.cells[0].textContent.trim() + ': ' + tr.cells[1].textContent.trim()); }); out.push(''); }
+        else if (c.children.length) walk(c);
+        else if (txt) out.push(txt);
+      });
+    })(box);
+    return out.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+  /* Copy as formatted text (HTML + plain), so it pastes into eBay's description box with its formatting. */
+  function copyRich(html, label) {
+    var text = descText(html), done = function () { toast(label + ' copied. Paste it into the eBay description box'); };
+    var viaSelection = function () {
+      var div = document.createElement('div');
+      div.contentEditable = 'true'; div.innerHTML = html;
+      div.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:#fff;color:#000';
+      document.body.appendChild(div);
+      var r = document.createRange(); r.selectNodeContents(div);
+      var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+      sel.removeAllRanges(); div.remove();
+      if (ok) done(); else copy(text, label);
+    };
+    if (navigator.clipboard && navigator.clipboard.write && window.ClipboardItem && window.isSecureContext) {
+      try {
+        navigator.clipboard.write([new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([text], { type: 'text/plain' })
+        })]).then(done, viaSelection);
+      } catch (e) { viaSelection(); }
+    } else viaSelection();
+  }
   function fallbackCopy(text) {
     var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
     document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove();
@@ -1361,11 +1405,12 @@
     var k = b.dataset.copy;
     if (k === 'title') copy(current.title, 'Title');
     if (k === 'specs') copy(specsText(current.specs), 'Item specifics');
-    if (k === 'html') copy(current.html, 'Description HTML');
+    if (k === 'desc') copyRich(current.html, 'Description');
+    if (k === 'html') copy(current.html, 'Description HTML code');
     if (k === 'all') copy(
       'TITLE\n' + current.title + '\n\nPRICE\n' + money(current.price) + '\n\nPOSTAGE (buyer pays)\n' + money(current.postage || 0) + '\n\nQUANTITY\n' + current.qty +
       '\n\nSKU\n' + current.sku + '\n\nCONDITION\n' + current.opts.condition +
-      '\n\nITEM SPECIFICS\n' + specsText(current.specs) + '\n\nDESCRIPTION (HTML)\n' + current.html, 'Listing');
+      '\n\nITEM SPECIFICS\n' + specsText(current.specs) + '\n\nDESCRIPTION\n' + descText(current.html), 'Listing');
   });
 
   /* ---------- eBay-ready photos ---------- */
