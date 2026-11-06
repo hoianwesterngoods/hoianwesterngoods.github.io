@@ -1185,34 +1185,41 @@
 
   function val(id) { return $(id).value; }
 
+  /* eBay title built for search: buyer search words first, brand only if there is room. Max 80 characters. */
   function buildTitle(t, s, m, o) {
-    // Tokens in priority order; lower-priority ones are dropped to fit eBay's 80-char limit.
-    var tokens = [
-      [1, settings.brand],
-      [1, o.grain],
-      [1, m.short],
-      [1, 'Leather'],
-      [1, t === TYPES.shoes ? shoeName(o.shoeStyle) : t.label],
-      [2, s.lead],
-      [2, s.label],
-      [3, o.color],
-      [4, t === TYPES.shoes ? (o.department === 'Women' ? "Women's" : o.department === 'Men' ? "Men's" : '') : t.keywords[0]],
-      [5, t === TYPES.backpack ? 'Men Women' : t === TYPES.shoes ? (s.euRange || 'EU ' + euSize(s.uk)) : 'Bag Travel'],
-      [6, 'Handmade'],
-      [7, o.finish]
-    ];
-    if (t === TYPES.backpack && s.laptop) tokens.push([5, 'Fits ' + s.laptop + ' Laptop']);
-    // Remove the redundant "Bag Travel" token for backpacks already handled; keep order stable.
-    var keep = tokens.slice();
-    var join = function (arr) { return arr.map(function (x) { return x[1]; }).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(); };
-    var maxP = 7;
-    while (join(keep).length > 80 && maxP > 1) {
-      keep = keep.filter(function (x) { return x[0] < maxP; });
-      maxP--;
+    var shoes = t === TYPES.shoes, style = (o.shoeStyle || '').toLowerCase();
+    var dept = shoes ? (o.department === 'Women' ? "Women's" : o.department === 'Men' ? "Men's" : '') : "Men's";
+    var leather = m === MATERIALS.buffalo ? 'Full Grain Buffalo Leather' : 'Full Grain Leather';
+    var colour = o.color || '';
+    // [position in title, priority (1 = always), words]
+    var parts;
+    if (shoes) {
+      var dressy = /oxford|derby|brogue|monk/.test(style), casual = /loafer|boat|trainer|sandal/.test(style), boot = /boot/.test(style);
+      parts = [
+        [1, 1, dept], [2, 2, 'Handmade'], [3, 1, leather], [4, 1, shoeName(o.shoeStyle)], [5, 1, colour],
+        [6, 3, /lace/i.test(o.closure) && !boot ? 'Lace Up' : ''],
+        [7, 3, dressy ? 'Dress Shoes' : casual ? 'Casual Shoes' : /chelsea/.test(style) ? 'Pull On' : ''],
+        [8, 2, s.many ? '' : 'UK ' + s.uk],
+        [9, 5, settings.brand]
+      ];
+    } else if (t === TYPES.duffle) {
+      parts = [
+        [1, 1, dept], [2, 1, leather], [3, 1, 'Holdall'], [4, 2, 'Duffle'], [5, 1, 'Weekend Bag'], [6, 1, colour],
+        [7, 2, 'Handmade'], [8, 3, 'Travel'], [9, 4, 'Overnight'], [10, 4, 'Gym'], [11, 5, settings.brand]
+      ];
+    } else {
+      parts = [
+        [1, 1, dept], [2, 1, leather], [3, 1, 'Backpack'], [4, 2, 'Laptop Rucksack'], [5, 3, s.laptop || ''], [6, 1, colour],
+        [7, 2, 'Handmade'], [8, 3, 'Travel'], [9, 4, 'Work Bag'], [10, 5, settings.brand]
+      ];
     }
-    var out = join(keep);
-    if (out.length > 80) out = out.slice(0, 80).replace(/\s+\S*$/, '');
-    return out;
+    parts = parts.filter(function (x) { return x[2]; });
+    var keep = [];
+    var text = function (list) { return list.slice().sort(function (a, b) { return a[0] - b[0]; }).map(function (x) { return x[2]; }).join(' ').replace(/\s+/g, ' ').trim(); };
+    parts.slice().sort(function (a, b) { return a[1] - b[1] || a[0] - b[0]; }).forEach(function (x) {
+      if (text(keep.concat([x])).length <= 80) keep.push(x);
+    });
+    return text(keep);
   }
 
   function buildSku(t, s, m, o) {
