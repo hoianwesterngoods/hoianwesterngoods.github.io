@@ -1189,7 +1189,7 @@
   /* eBay title built for search: buyer search words first, brand only if there is room. Max 80 characters. */
   function buildTitle(t, s, m, o) {
     var shoes = t === TYPES.shoes, style = (o.shoeStyle || '').toLowerCase();
-    var dept = shoes ? (o.department === 'Women' ? "Women's" : o.department === 'Men' ? "Men's" : '') : "Men's";
+    var dept = shoes ? (o.department === 'Women' ? "Women's" : o.department === 'Men' ? "Men's" : '') : '';   // bags are unisex
     var leather = m === MATERIALS.buffalo ? 'Full Grain Buffalo Leather' : 'Full Grain Leather';
     var colour = o.color || '';
     // [position in title, priority (1 = always), words]
@@ -1206,12 +1206,12 @@
     } else if (t === TYPES.duffle) {
       parts = [
         [1, 1, dept], [2, 1, leather], [3, 1, 'Holdall'], [4, 2, 'Duffle'], [5, 1, 'Weekend Bag'], [6, 1, colour],
-        [7, 2, 'Handmade'], [8, 3, 'Travel'], [9, 4, 'Overnight'], [10, 4, 'Gym'], [11, 5, settings.brand]
+        [7, 2, 'Handmade'], [8, 3, 'Travel'], [9, 4, 'Unisex'], [10, 4, 'Overnight'], [11, 4, 'Gym'], [12, 5, settings.brand]
       ];
     } else {
       parts = [
         [1, 1, dept], [2, 1, leather], [3, 1, 'Backpack'], [4, 2, 'Laptop Rucksack'], [5, 3, s.laptop || ''], [6, 1, colour],
-        [7, 2, 'Handmade'], [8, 3, 'Travel'], [9, 4, 'Work Bag'], [10, 5, settings.brand]
+        [7, 2, 'Handmade'], [8, 3, 'Travel'], [9, 4, 'Unisex'], [10, 4, 'Work Bag'], [11, 5, settings.brand]
       ];
     }
     parts = parts.filter(function (x) { return x[2]; });
