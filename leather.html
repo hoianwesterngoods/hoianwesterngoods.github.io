@@ -347,7 +347,8 @@
     <div class="card">
       <div class="out-head" style="margin-bottom:.6rem">
         <h2>Saved listings</h2>
-        <button class="btn small" id="exportCsv" type="button">Export CSV</button>
+        <span class="copy-pair"><button class="btn small primary" id="newTitles" type="button">Copy new titles</button>
+        <button class="btn small" id="exportCsv" type="button">Export CSV</button></span>
       </div>
       <ul class="saved-list" id="savedList"></ul>
     </div>
@@ -1615,6 +1616,22 @@
       window.scrollTo({ top: 0, behavior: 'smooth' });
       toast('Opened ' + r.sku + ' (photos are not stored — re-add them to download)');
     }
+  });
+  /* Rebuild a saved listing's title with the current title rules. */
+  function titleFor(r) {
+    var o = r.opts || {}, t = TYPES[r.type], m = MATERIALS[r.material];
+    var s = sz(r.type, r.size, r.material, o.lining || 'Heavy Cotton Canvas');
+    if (r.type === 'shoes') {
+      var ks = Object.keys(r.shoeSizes || {}).filter(function (k) { return TYPES.shoes.sizes[k]; });
+      s = Object.assign({}, s, { many: ks.length > 1 });
+    }
+    return buildTitle(t, s, m, Object.assign({ color: '', closure: '', shoeStyle: '', department: '' }, o));
+  }
+  $('newTitles').addEventListener('click', function () {
+    if (!saved.length) { toast('No saved listings yet'); return; }
+    var lines = saved.map(function (r) { var nt = titleFor(r); r.title = nt; r.titleEdited = false; return r.sku + '\t' + nt; });
+    store('ls.saved', saved); renderSaved();
+    copy('SKU\tNew title\n' + lines.join('\n'), saved.length + ' new titles');
   });
   $('exportCsv').addEventListener('click', function () {
     if (!saved.length) { toast('Nothing saved yet'); return; }
