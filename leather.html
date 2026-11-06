@@ -210,6 +210,12 @@
   details.fix summary { cursor: pointer; color: var(--muted); font-size: .85rem; }
   details.fix[open] summary { margin-bottom: .8rem; }
 
+  .shoe-qty { margin-top: .7rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: .45rem; }
+  .shoe-qty label { display: flex; align-items: center; justify-content: space-between; gap: .4rem; border: 1px solid var(--line); border-radius: var(--r); padding: .3rem .5rem; font-size: .85rem; }
+  .shoe-qty input { width: 52px; padding: .25rem .35rem; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+  .shoe-qty .hint { grid-column: 1 / -1; color: var(--muted); font-size: .82rem; margin: 0; }
+  #sizesBlock thead th { color: var(--muted); font-weight: 500; font-size: .78rem; }
+
   /* saved */
   .saved-list li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: .75rem; align-items: center; padding: .6rem 0; border-bottom: 1px solid var(--line); }
   .saved-list li:last-child { border-bottom: 0; }
@@ -283,8 +289,9 @@
         <div class="tiles" id="materialTiles"></div>
       </div>
       <div class="group">
-        <span class="lbl">Size</span>
+        <span class="lbl" id="sizeLbl">Size</span>
         <div class="tiles sizes" id="sizeTiles"></div>
+        <div class="shoe-qty shoe-only" id="shoeQty"></div>
       </div>
       <div class="group">
         <span class="lbl" id="typeLbl">Product</span>
@@ -302,7 +309,7 @@
         <div class="field"><label for="buyVnd">Buy price (VND)</label>
           <input id="buyVnd" type="text" inputmode="numeric" placeholder="e.g. 1,850,000" autocomplete="off">
           <div class="field-hint" id="buyHint"></div></div>
-        <div class="field"><label for="qty">Quantity</label>
+        <div class="field bag-only"><label for="qty">Quantity</label>
           <input id="qty" type="number" min="1" value="1"></div>
         <div class="field"><label for="condition">Condition</label>
           <select id="condition"><option>New with tags</option><option>New without tags</option></select></div>
@@ -369,6 +376,14 @@
           <span><span class="count" id="titleCount">0/80</span> <button class="btn small" data-copy="title" type="button">Copy</button></span>
         </div>
         <input class="title-box" id="outTitle" maxlength="80" aria-label="Listing title">
+      </div>
+
+      <div class="out-block shoe-only" id="sizesBlock">
+        <div class="out-head">
+          <span class="lbl">Sizes &amp; stock (eBay size options)</span>
+          <button class="btn small" data-copy="sizes" type="button">Copy</button>
+        </div>
+        <table class="specs"><thead><tr><th>UK</th><th>EU</th><th>US</th><th>Qty</th><th>SKU</th></tr></thead><tbody id="outSizes"></tbody></table>
       </div>
 
       <div class="out-block">
@@ -714,8 +729,18 @@
   if (!Array.isArray(settings.shipBands) || !settings.shipBands.length) settings.shipBands = clone(DEFAULTS.shipBands);
   var saved = load('ls.saved', []);
 
-  var state = { type: 'duffle', size: 'M', material: 'cow', photos: [], editingId: null, titleEdited: false, detailsSource: 'default' };
+  var state = { shoeSizes: {}, type: 'duffle', size: 'M', material: 'cow', photos: [], editingId: null, titleEdited: false, detailsSource: 'default' };
   function defaultClosure(type) { return type === 'duffle' ? 'Full-length zip' : type === 'shoes' ? 'Lace-up' : 'Buckle flap with magnetic catch'; }
+  /* Shoe sizes in stock: { UK6: 2, UK7: 1, ... } */
+  function shoeKeys() {
+    return Object.keys(state.shoeSizes || {}).filter(function (k) { return TYPES.shoes.sizes[k]; })
+      .sort(function (a, b) { return TYPES.shoes.sizes[a].uk - TYPES.shoes.sizes[b].uk; });
+  }
+  function rangeText(nums) {          // [6,7,8,10] -> "6-8, 10"
+    var out = [], i = 0;
+    while (i < nums.length) { var j = i; while (j + 1 < nums.length && nums[j + 1] === nums[j] + 1) j++; out.push(j > i + 1 ? nums[i] + '-' + nums[j] : j === i + 1 ? nums[i] + ', ' + nums[j] : String(nums[i])); i = j + 1; }
+    return out.join(', ');
+  }
   function euSize(uk) { return Math.round(uk + 33.5); }                     // UK 8 = EU 42
   function usSize(uk, dept) { return uk + (dept === 'Women' ? 2 : 1); }   // men's US = UK + 1, women's = UK + 2
   function fillTypeDefaults() {
@@ -744,7 +769,7 @@
   }
   function vnd(n) { return Math.round(n).toLocaleString('en-GB') + ' ₫'; }
   function parseVnd(s) { var d = String(s || '').replace(/[^\d]/g, ''); return d ? Number(d) : 0; }
-  function costKey() { return state.type + '-' + state.size + '-' + state.material; }
+  function costKey() { return state.type === 'shoes' ? 'shoes-' + state.material : state.type + '-' + state.size + '-' + state.material; }
   function num(v) { return Math.round(Number(v) * 10) / 10; }
   function inch(cm) { return Math.round(cm / 2.54); }
   /* Everything about one size, from the editable size table. */
@@ -832,15 +857,30 @@
     if (!sizes[state.size]) state.size = defaultSize(state.type);
     $('sizeTiles').innerHTML = Object.keys(sizes).map(function (k) {
       var s = sz(state.type, k, state.material);
-      if (state.type === 'shoes') return tile('size', k, s.label, 'EU ' + euSize(s.uk) + ' · ~' + s.kg + ' kg pair', state.size === k);
+      if (state.type === 'shoes') return tile('shoeSize', k, s.label, 'EU ' + euSize(s.uk) + ' · ~' + s.kg + ' kg pair', !!(state.shoeSizes && state.shoeSizes[k])).replace('type="radio"', 'type="checkbox"');
       return tile('size', k, s.label + ' · ' + s.lead, s.dims + (s.cap ? ' · ' + s.cap : '') + ' · ~' + s.kg + ' kg', state.size === k);
     }).join('');
+    $('sizeLbl').textContent = state.type === 'shoes' ? 'Sizes in stock (tick all you have)' : 'Size';
+    if (state.type === 'shoes') {
+      var ks = shoeKeys();
+      $('shoeQty').innerHTML = ks.length
+        ? '<p class="hint">Tick every size you have, then set how many pairs of each.</p>' + ks.map(function (k) {
+            return '<label>' + TYPES.shoes.sizes[k].label + ' <input type="number" min="0" step="1" inputmode="numeric" data-sq="' + k + '" value="' + state.shoeSizes[k] + '" aria-label="Pairs in ' + TYPES.shoes.sizes[k].label + '"></label>';
+          }).join('')
+        : '<p class="hint">Tick every size you have in stock. They all go in one listing.</p>';
+    }
     $('materialTiles').innerHTML = Object.keys(MATERIALS).map(function (k) {
       return tile('material', k, MATERIALS[k].label, MATERIALS[k].blurb, state.material === k);
     }).join('');
   }
   document.addEventListener('change', function (e) {
     var n = e.target.name;
+    if (n === 'shoeSize') {
+      state.shoeSizes = state.shoeSizes || {};
+      if (e.target.checked) state.shoeSizes[e.target.value] = state.shoeSizes[e.target.value] || 1; else delete state.shoeSizes[e.target.value];
+      var ks = shoeKeys(); if (ks.length) state.size = ks[ks.length - 1];   // largest size sets the postage weight
+      state.titleEdited = false; renderTiles(); generate(); return;
+    }
     if (n === 'type' || n === 'size' || n === 'material') {
       state[n] = e.target.value;
       state.titleEdited = false;
@@ -850,6 +890,11 @@
       renderTiles();
       generate();
     }
+  });
+
+  $('shoeQty').addEventListener('input', function (e) {
+    var k = e.target.dataset && e.target.dataset.sq; if (!k) return;
+    state.shoeSizes[k] = Math.max(0, parseInt(e.target.value, 10) || 0); generate();
   });
 
   /* ---------- photos ---------- */
@@ -988,7 +1033,7 @@
           var prompt = [
             'You are helping a small leather goods business write an eBay listing.',
             'The ' + blobs.length + ' photo(s) show ONE handmade leather product (a bag, or a pair of shoes or boots) from different angles.',
-            'Everything is premium full grain leather. The seller has already chosen the hide (' + MATERIALS[state.material].label + ') and the size (' + TYPES[state.type].sizes[state.size].label + '), so do not judge those.',
+            'Everything is premium full grain leather. The seller has already chosen the hide (' + MATERIALS[state.material].label + ') and the size' + (state.type === 'shoes' ? 's' : '') + ', so do not judge those.',
             'Describe only what you can actually see. Reply with only a JSON object, no other text:',
             '{',
             '  "type": "duffle", "backpack" or "shoes" (use "shoes" for any shoes, boots or sandals),',
@@ -1082,7 +1127,7 @@
     showAi('', 'Filled in from your photos: ' + (filled.join(', ') || 'nothing') + '.' +
       (typeof r.colourSeen === 'string' && r.colourSeen.trim() ? ' Colour: ' + $('color').value + ' (Claude saw "' + r.colourSeen.trim().slice(0, 60) + '").' : '') + lightNote +
       (missed.length ? ' Not changed: ' + missed.join(', ') + '.' : '') +
-      (switchedToShoes ? ' These look like shoes: pick the UK size above.' : '') +
+      (switchedToShoes ? ' These look like shoes: tick the UK sizes you have above.' : '') +
       (unsure.length ? ' Check: ' + unsure.slice(0, 5).join(', ') + ' (not clear in the photos).' : ' Check the details below before you list.'), true);
   }
 
@@ -1151,7 +1196,7 @@
       [2, s.label],
       [3, o.color],
       [4, t === TYPES.shoes ? (o.department === 'Women' ? "Women's" : o.department === 'Men' ? "Men's" : '') : t.keywords[0]],
-      [5, t === TYPES.backpack ? 'Men Women' : t === TYPES.shoes ? 'EU ' + euSize(s.uk) : 'Bag Travel'],
+      [5, t === TYPES.backpack ? 'Men Women' : t === TYPES.shoes ? (s.euRange || 'EU ' + euSize(s.uk)) : 'Bag Travel'],
       [6, 'Handmade'],
       [7, o.finish]
     ];
@@ -1172,7 +1217,7 @@
   function buildSku(t, s, m, o) {
     var col = o.color.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
     var n = String(saved.length + 1).padStart(3, '0');
-    return [settings.skuPrefix || 'JL', t.code, state.size, m.code, col, n].filter(Boolean).join('-');
+    return [settings.skuPrefix || 'JL', t.code, state.type === 'shoes' ? '' : state.size, m.code, col, n].filter(Boolean).join('-');
   }
 
   function buildSpecs(t, s, m, o) {
@@ -1182,9 +1227,9 @@
         ['Type', /boot/i.test(o.shoeStyle) ? 'Boot' : 'Shoe'],
         ['Style', o.shoeStyle],
         ['Department', o.department || 'Men'],
-        ['UK Shoe Size', String(s.uk)],
-        ['EU Shoe Size', String(euSize(s.uk))],
-        ['US Shoe Size', String(usSize(s.uk, o.department))],
+        ['UK Shoe Size', s.ukText || String(s.uk)],
+        ['EU Shoe Size', s.euText || String(euSize(s.uk))],
+        ['US Shoe Size', (s.uks || [s.uk]).map(function (u) { return usSize(u, o.department); }).join(', ')],
         ['Upper Material', m.ebay],
         ['Leather Grade', o.grain],
         ['Leather Finish', o.finish],
@@ -1192,7 +1237,7 @@
         ['Lining Material', o.lining],
         ['Outsole Material', o.sole],
         ['Closure', o.closure.trim() || defaultClosure('shoes')],
-        ['Item Weight', 'approx. ' + s.kg + ' kg (pair)'],
+        ['Item Weight', 'approx. ' + (s.kgText || s.kg) + ' kg (pair)'],
         ['Handmade', 'Yes'],
         ['Country of Origin', 'Vietnam'],
         ['Condition', o.condition]
@@ -1259,7 +1304,9 @@
         '<p style="margin:0 0 14px;line-height:1.65">' + esc(m.copy) + '</p>' +
         (shoes
           ? '<p style="margin:0 0 18px;line-height:1.65">These ' + esc((o.department === 'Women' ? "women's " : o.department === 'Men' ? "men's " : '') + shoeName(o.shoeStyle).toLowerCase()) + ' are made from ' + esc([o.color, o.finish, 'full grain'].filter(Boolean).join(' ').toLowerCase()) +
-            ' leather, in UK size ' + s.uk + ' (EU ' + euSize(s.uk) + ', US ' + usSize(s.uk, o.department) + ').</p>'
+            ' leather, ' + (s.many
+              ? 'available in UK sizes ' + rangeText(s.uks) + ' (EU ' + rangeText(s.uks.map(euSize)) + ', US ' + rangeText(s.uks.map(function (u) { return usSize(u, o.department); })) + '). Choose your size from the options above.'
+              : 'in UK size ' + s.uk + ' (EU ' + euSize(s.uk) + ', US ' + usSize(s.uk, o.department) + ').') + '</p>'
           : '<p style="margin:0 0 18px;line-height:1.65">Our ' + esc(s.label === 'XL' ? 'XL' : s.label.toLowerCase()) + ' ' + esc(t.label.toLowerCase()) +
           ' is made from ' + esc([o.color, o.finish, 'full grain'].filter(Boolean).join(' ').toLowerCase()) +
           ' leather — ideal for ' + esc(s.use.charAt(0).toLowerCase() + s.use.slice(1)) + (s.laptop ? ', with room for a laptop up to ' + esc(s.laptop) : '') + '.' +
@@ -1275,8 +1322,8 @@
           row('Finish', o.finish) +
           row('Colour', o.color) +
           (shoes
-            ? row('Style', o.shoeStyle || 'Shoes') + row('Size', 'UK ' + s.uk + ' / EU ' + euSize(s.uk) + ' / US ' + usSize(s.uk, o.department)) +
-              (o.sole ? row('Sole', o.sole) : '') + row('Closure', o.closure.trim() || defaultClosure('shoes')) + row('Weight', 'approx. ' + s.kg + ' kg (pair)')
+            ? row('Style', o.shoeStyle || 'Shoes') + row(s.many ? 'Sizes' : 'Size', s.many ? 'UK ' + rangeText(s.uks) + ' / EU ' + rangeText(s.uks.map(euSize)) + ' / US ' + rangeText(s.uks.map(function (u) { return usSize(u, o.department); })) : 'UK ' + s.uk + ' / EU ' + euSize(s.uk) + ' / US ' + usSize(s.uk, o.department)) +
+              (o.sole ? row('Sole', o.sole) : '') + row('Closure', o.closure.trim() || defaultClosure('shoes')) + row('Weight', 'approx. ' + (s.kgText || s.kg) + ' kg (pair)')
             : row('Size', s.label + ' — ' + s.lead) +
               row('Dimensions', s.dims + ' (' + s.dimsIn + ')') +
               (s.cap ? row('Capacity', s.cap) : '') +
@@ -1299,6 +1346,18 @@
 
   function generate() {
     var t = TYPES[state.type], s = sz(state.type, state.size, state.material), m = MATERIALS[state.material];
+    if (state.type === 'shoes') {
+      var ks = shoeKeys(); if (!ks.length) ks = [state.size];
+      var uks = ks.map(function (k) { return TYPES.shoes.sizes[k].uk; }), many = uks.length > 1;
+      var kgs = ks.map(function (k) { return sz('shoes', k, state.material).kg; });
+      s = Object.assign({}, s, {
+        many: many, keys: ks, uks: uks,
+        label: 'UK ' + (many ? uks[0] + '-' + uks[uks.length - 1] : uks[0]),   // title shows the span; exact sizes are listed elsewhere
+        ukText: uks.join(', '), euText: uks.map(euSize).join(', '),
+        euRange: 'EU ' + (many ? euSize(uks[0]) + '-' + euSize(uks[uks.length - 1]) : euSize(uks[0])),
+        kgText: many ? Math.min.apply(null, kgs) + '–' + Math.max.apply(null, kgs) : String(s.kg)
+      });
+    }
     var o = {};
     FIELDS.forEach(function (f) { o[f] = val(f); });
 
@@ -1308,13 +1367,21 @@
     var sku = state.editingId ? current.sku : buildSku(t, s, m, o);
 
     current = {
-      sku: sku, title: title, price: price, qty: Math.max(1, parseInt(o.qty, 10) || 1),
+      sku: sku, title: title, price: price,
+      qty: state.type === 'shoes' ? Math.max(1, shoeKeys().reduce(function (a, k) { return a + (state.shoeSizes[k] || 0); }, 0)) : Math.max(1, parseInt(o.qty, 10) || 1),
+      shoeSizes: state.type === 'shoes' ? clone(state.shoeSizes || {}) : null,
       type: state.type, size: state.size, material: state.material, opts: o, specs: specs,
       html: buildDescription(title, t, s, m, o)
     };
 
     $('outPrice').textContent = price ? money(price) : '£ —';
-    $('outSku').textContent = 'SKU ' + sku + ' · Qty ' + current.qty;
+    $('outSku').textContent = 'SKU ' + sku + ' · Qty ' + current.qty + (state.type === 'shoes' && s.many ? ' across ' + s.keys.length + ' sizes' : '');
+    if (state.type === 'shoes') {
+      $('outSizes').innerHTML = s.keys.map(function (k) {
+        var uk = TYPES.shoes.sizes[k].uk;
+        return '<tr><td>' + uk + '</td><td>' + euSize(uk) + '</td><td>' + usSize(uk, o.department) + '</td><td>' + (state.shoeSizes && state.shoeSizes[k] != null ? state.shoeSizes[k] : 1) + '</td><td>' + esc(sku + '-UK' + uk) + '</td></tr>';
+      }).join('');
+    }
     renderProfit(price, parseVnd(o.buyVnd));
     renderSummary(t, o);
     document.querySelectorAll('.shoe-only').forEach(function (el) { el.hidden = !isShoes(); });
@@ -1444,9 +1511,12 @@
     if (k === 'title') copy(current.title, 'Title');
     if (k === 'specs') copy(specsText(current.specs), 'Item specifics');
     if (k === 'desc') copyRich(current.html, 'Description');
+    if (k === 'sizes') copy(Array.prototype.map.call(document.querySelectorAll('#outSizes tr'), function (tr) {
+      var c = tr.cells; return 'UK ' + c[0].textContent + ' / EU ' + c[1].textContent + ' / US ' + c[2].textContent + ' - Qty ' + c[3].textContent + ' - SKU ' + c[4].textContent;
+    }).join('\n'), 'Sizes');
     if (k === 'html') copy(current.html, 'Description HTML code');
     if (k === 'all') copy(
-      'TITLE\n' + current.title + '\n\nPRICE\n' + money(current.price) + '\n\nPOSTAGE (buyer pays)\n' + money(current.postage || 0) + '\n\nQUANTITY\n' + current.qty +
+      'TITLE\n' + current.title + '\n\nPRICE\n' + money(current.price) + '\n\nPOSTAGE (buyer pays)\n' + money(current.postage || 0) + '\n\nQUANTITY\n' + current.qty + (current.shoeSizes ? '\n\nSIZES\n' + Object.keys(current.shoeSizes).map(function (k) { return TYPES.shoes.sizes[k].label + ' x ' + current.shoeSizes[k]; }).join('\n') : '') +
       '\n\nSKU\n' + current.sku + '\n\nCONDITION\n' + current.opts.condition +
       '\n\nITEM SPECIFICS\n' + specsText(current.specs) + '\n\nDESCRIPTION\n' + descText(current.html), 'Listing');
   });
@@ -1526,6 +1596,7 @@
     if (o) {
       var r = saved.find(function (x) { return x.id === o.dataset.open; }); if (!r) return;
       state.type = r.type; state.size = r.size; state.material = r.material; state.editingId = r.id;
+      state.shoeSizes = r.shoeSizes ? clone(r.shoeSizes) : {};
       current.sku = r.sku;
       FIELDS.forEach(function (f) { if (r.opts && f in r.opts) $(f).value = r.opts[f]; });
       $('grain').value = 'Full Grain';
@@ -1543,7 +1614,7 @@
     var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
     var lines = [cols.join(',')].concat(saved.map(function (r) {
       var pf = profitFor(r.price, r.buyVnd || 0, r.type, r.size, r.material, r.opts && r.opts.lining);
-      return [r.sku, r.title, r.price, pf.ship.toFixed(2), pf.bpFee.toFixed(2), (r.price + pf.ship + pf.bpFee).toFixed(2), r.buyVnd || '', r.buyVnd ? pf.cost.toFixed(2) : '', r.buyVnd ? pf.profit.toFixed(2) : '', r.buyVnd ? (pf.margin * 100).toFixed(1) : '', r.qty, r.opts.condition, TYPES[r.type].label, TYPES[r.type].sizes[r.size].label,
+      return [r.sku, r.title, r.price, pf.ship.toFixed(2), pf.bpFee.toFixed(2), (r.price + pf.ship + pf.bpFee).toFixed(2), r.buyVnd || '', r.buyVnd ? pf.cost.toFixed(2) : '', r.buyVnd ? pf.profit.toFixed(2) : '', r.buyVnd ? (pf.margin * 100).toFixed(1) : '', r.qty, r.opts.condition, TYPES[r.type].label, r.shoeSizes ? Object.keys(r.shoeSizes).map(function (k) { return TYPES.shoes.sizes[k].label + ' x' + r.shoeSizes[k]; }).join('; ') : TYPES[r.type].sizes[r.size].label,
         MATERIALS[r.material].label, r.opts.color, r.opts.finish, r.html].map(q).join(',');
     }));
     var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' });
@@ -1554,7 +1625,7 @@
   $('resetForm').addEventListener('click', function () {
     state.photos.forEach(function (p) { URL.revokeObjectURL(p.url); });
     state.photos = []; state.editingId = null; state.titleEdited = false;
-    $('notes').value = ''; $('priceOverride').value = ''; $('qty').value = 1;
+    $('notes').value = ''; $('priceOverride').value = ''; $('qty').value = 1; state.shoeSizes = {};
     var rc = settings.costs[costKey()]; $('buyVnd').value = rc ? rc.toLocaleString('en-GB') : '';
     fillTypeDefaults(); state.aiNotes = ''; $('color').value = ''; $('finish').value = ''; $('hardware').value = ''; $('shoePocket').value = ''; $('shoeStyle').value = ''; $('sole').value = ''; if (aiCtl) aiCtl.abort(); $('aiBox').hidden = true;
     renderThumbs(); $('colorSuggest').hidden = true; generate();
