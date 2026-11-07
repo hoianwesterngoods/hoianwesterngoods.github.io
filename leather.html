@@ -361,6 +361,7 @@
       <div class="price-row">
         <div>
           <div class="big-price" id="outPrice">£0</div>
+          <div class="price-break" id="outPriceNote"></div>
         </div>
         <div class="price-break" id="outSku"></div>
       </div>
@@ -436,6 +437,7 @@
       <div class="field"><label for="setVatRate">VAT rate (%)</label><input id="setVatRate" type="number" min="0" max="50" step="1"></div>
       <div class="field"><label for="setVatMode">How eBay takes VAT</label>
         <select id="setVatMode">
+          <option value="added">Added on top for the buyer (you keep your price)</option>
           <option value="flat">Flat % off the price (price × 0.8)</option>
           <option value="inclusive">Included in the price (price ÷ 1.2)</option>
         </select></div>
@@ -584,7 +586,7 @@
 
   var DEFAULTS = {
     currency: 'GBP',
-    v: 4,
+    v: 5,
     brand: 'J&L Leather Co.',
     tagline: 'Handcrafted Leather Goods',
     skuPrefix: 'JL',
@@ -595,7 +597,7 @@
     buffaloAdd: { duffle: 25, backpack: 15 },
     vndPerGbp: 34000,
     vatRate: 20,
-    vatMode: 'flat',
+    vatMode: 'added',
     feePct: 0,
     feeFixed: 0,
     bp: { fixed: 0.10, t1: 7, t2: 4, t3: 2 },
@@ -722,6 +724,7 @@
     if (!Array.isArray(sb) || sb.length <= 1) settings.shipBands = clone(DEFAULTS.shipBands);
     settings.v = 4;
   }
+  if ((storedSettings.v || 1) < 5) { settings.vatMode = 'added'; settings.v = 5; }   // eBay adds 20% VAT on top for the buyer
   settings.feePct = 0; settings.feeFixed = 0;   // the only eBay fee is Buyer Protection, paid by the buyer
   ['thicknessMm', 'extraPct', 'hardwareKg', 'liningKgM2', 'bp', 'shoes'].forEach(function (k) { settings[k] = Object.assign(clone(DEFAULTS[k]), settings[k] || {}); });
   var OLD_COLOURS = ["Oxblood Red: deep brownish red, like dried blood or dark cherry wood", "Burgundy: wine red with a purple tone", "Cognac: warm orange-brown, like the drink", "Tan: light golden brown", "Honey: light warm yellow-brown", "Chestnut: mid reddish brown", "Brown: plain mid brown", "Dark Brown: deep brown, not red", "Chocolate: very dark brown, almost black", "Black: black", "Olive: brownish green", "Navy: dark blue", "Grey: grey"];
@@ -844,7 +847,8 @@
   function profitFor(price, buyVnd, type, size, material, lining) {
     var sh = shippingFor(type || state.type, size || state.size, material || state.material, lining);
     var r = (Number(settings.vatRate) || 0) / 100;
-    var keep = settings.vatMode === 'flat' ? 1 - r : 1 / (1 + r);   // share of price left after VAT
+    var added = settings.vatMode === 'added';
+    var keep = added ? 1 : settings.vatMode === 'flat' ? 1 - r : 1 / (1 + r);   // share of price left after VAT
     var vat = price * (1 - keep);
     var f = (Number(settings.feePct) || 0) / 100, fixed = Number(settings.feeFixed) || 0, ship = sh.vnd / (Number(settings.vndPerGbp) || 1);
     var fees = price * f + fixed;
@@ -854,7 +858,8 @@
     var profit = price - vat - fees - cost - (free ? ship : 0);   // with free postage you pay shipping out of the price
     var m = (Number(settings.targetMargin) || 0) / 100, denom = keep - f - m;
     var target = denom > 0 ? Math.ceil((cost + fixed + (free ? ship : 0)) / denom) : null;
-    return { bpFee: buyerProtection(price), shipInfo: sh, vat: vat, fees: fees, ship: ship, cost: cost, profit: profit, margin: price > 0 ? profit / price : 0, target: target, net: price - vat };
+    var buyerPrice = added ? Math.round(price * (1 + r) * 100) / 100 : price;
+    return { added: added, buyerPrice: buyerPrice, bpFee: buyerProtection(buyerPrice), shipInfo: sh, vat: vat, fees: fees, ship: ship, cost: cost, profit: profit, margin: price > 0 ? profit / price : 0, target: target, net: price - vat };
   }
 
   /* ---------- tiles ---------- */
@@ -1396,6 +1401,9 @@
     };
 
     $('outPrice').textContent = price ? money(price) : '£ —';
+    var vr0 = (Number(settings.vatRate) || 0) / 100;
+    $('outPriceNote').innerHTML = price && settings.vatMode === 'added'
+      ? 'Buyers see ' + money(Math.round(price * (1 + vr0) * 100) / 100) + ' with VAT' + (price > 135 ? ' <span class="pill bad">over £135: buyer pays import VAT on delivery</span>' : '') : '';
     $('outSku').textContent = 'SKU ' + sku + ' · Qty ' + current.qty + (state.type === 'shoes' && s.many ? ' across ' + s.keys.length + ' sizes' : '');
     if (state.type === 'shoes') {
       $('outSizes').innerHTML = s.keys.map(function (k) {
@@ -1435,7 +1443,7 @@
     $('buyHint').textContent = buy ? '≈ ' + money(p.cost) + ' at ' + vnd(settings.vndPerGbp) + ' per £1' : 'Saved for this product, size and hide';
     var row = function (k, v, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + k + '</th><td>' + v + '</td></tr>'; };
     var html = row('Sale price', money(price)) +
-      row((settings.vatMode === 'flat' ? 'eBay VAT ' : 'VAT ') + vr + '%', money(-p.vat));
+      (p.added ? '' : row((settings.vatMode === 'flat' ? 'eBay VAT ' : 'VAT ') + vr + '%', money(-p.vat)));
     var free = settings.freePostage !== false, si = p.shipInfo;
     if (free) html += row('Shipping, you pay <span class="muted">(' + si.kg + ' kg' + (si.byVolume ? ' by size' : '') + ', ' + si.band + ')</span>',
       money(-p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>' + (si.over ? ' <span class="pill warn">over your top band</span>' : ''));
@@ -1447,12 +1455,12 @@
     }
     if (free) {
       html += '<tr class="gap"><td colspan="2"></td></tr>' + row('Postage', 'Free') +
-        row('Buyer Protection fee, paid by buyer', money(p.bpFee)) + row('Buyer pays in total', money(price + p.bpFee), 'total');
+        (p.added ? row('VAT ' + vr + '%, added for the buyer', money(p.buyerPrice - price)) : '') + row('Buyer Protection fee, paid by buyer', money(p.bpFee)) + row('Buyer pays in total', money(p.buyerPrice + p.bpFee), 'total');
     } else html += '<tr class="gap"><td colspan="2"></td></tr>' +
       row('Postage, paid by buyer <span class="muted">(' + si.kg + ' kg' + (si.byVolume ? ' by size' : '') + ', ' + si.band + ')</span>',
         money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>' + (si.over ? ' <span class="pill warn">over your top band</span>' : '')) +
       row('Buyer Protection fee, paid by buyer', money(p.bpFee)) +
-      row('Buyer pays in total', money(price + p.ship + p.bpFee), 'total');
+      (p.added ? row('VAT ' + vr + '%, added for the buyer', money(p.buyerPrice - price)) : '') + row('Buyer pays in total', money(p.buyerPrice + p.ship + p.bpFee), 'total');
     current.postage = free ? 0 : p.ship; current.bpFee = p.bpFee;
     if (!price && !free) html = row('Postage, paid by buyer <span class="muted">(' + si.kg + ' kg, ' + si.band + ')</span>', money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>');
     $('outProfit').innerHTML = html;
