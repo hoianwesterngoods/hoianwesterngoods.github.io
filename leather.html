@@ -655,6 +655,8 @@
     volDivisor: 5000,
     targetMargin: 30,
     costs: {},
+    // Buy prices (VND) for bags: cowhide 1,200,000, buffalo hide 1,500,000, any size
+    bagCosts: { cow: 1200000, buffalo: 1500000 },
     shipping: 'Ships within 2 business days, carefully packed in a protective dust bag. Tracking provided on every order.',
     returns: '30-day returns accepted. Item must be unused and in original condition.',
     // Colour names Claude must choose from, each with a short description so it picks consistently.
@@ -771,6 +773,12 @@
   }
   function vnd(n) { return Math.round(n).toLocaleString('en-GB') + ' ₫'; }
   function parseVnd(s) { var d = String(s || '').replace(/[^\d]/g, ''); return d ? Number(d) : 0; }
+  function rememberedCost() {
+    var v = settings.costs[costKey()];
+    if (v) return v;
+    if (state.type !== 'shoes' && settings.bagCosts) return settings.bagCosts[state.material] || 0;
+    return 0;
+  }
   function costKey() { return state.type === 'shoes' ? 'shoes-' + state.material : state.type + '-' + state.size + '-' + state.material; }
   function num(v) { return Math.round(Number(v) * 10) / 10; }
   function inch(cm) { return Math.round(cm / 2.54); }
@@ -886,7 +894,7 @@
     if (n === 'type' || n === 'size' || n === 'material') {
       state[n] = e.target.value;
       state.titleEdited = false;
-      var remembered = settings.costs[costKey()];
+      var remembered = rememberedCost();
       $('buyVnd').value = remembered ? remembered.toLocaleString('en-GB') : '';
       if (n === 'type' && state.detailsSource === 'default') fillTypeDefaults();
       renderTiles();
@@ -1091,7 +1099,7 @@
     if (okType && r.type !== state.type) {
       state.type = r.type;
       if (!TYPES[state.type].sizes[state.size]) state.size = defaultSize(state.type);
-      var rem = settings.costs[costKey()];
+      var rem = rememberedCost();
       $('buyVnd').value = rem ? rem.toLocaleString('en-GB') : '';
     }
     if (okType) filled.push('product');
@@ -1651,7 +1659,7 @@
     state.photos.forEach(function (p) { URL.revokeObjectURL(p.url); });
     state.photos = []; state.editingId = null; state.titleEdited = false;
     $('notes').value = ''; $('priceOverride').value = ''; $('qty').value = 1; state.shoeSizes = {};
-    var rc = settings.costs[costKey()]; $('buyVnd').value = rc ? rc.toLocaleString('en-GB') : '';
+    var rc = rememberedCost(); $('buyVnd').value = rc ? rc.toLocaleString('en-GB') : '';
     fillTypeDefaults(); state.aiNotes = ''; $('color').value = ''; $('finish').value = ''; $('hardware').value = ''; $('shoePocket').value = ''; $('shoeStyle').value = ''; $('sole').value = ''; if (aiCtl) aiCtl.abort(); $('aiBox').hidden = true;
     renderThumbs(); $('colorSuggest').hidden = true; generate();
     toast('Ready for a new listing');
@@ -1774,7 +1782,7 @@
     $('typeLbl').textContent = 'Product (read from photos)';
   });
   fillTypeDefaults();
-  var rc0 = settings.costs[costKey()]; if (rc0) $('buyVnd').value = rc0.toLocaleString('en-GB');
+  var rc0 = rememberedCost(); if (rc0) $('buyVnd').value = rc0.toLocaleString('en-GB');
   applyBrand();
   renderTiles();
   renderThumbs();
