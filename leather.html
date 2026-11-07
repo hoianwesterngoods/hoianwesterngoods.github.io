@@ -488,6 +488,8 @@
       <div class="field"><label for="setVolumetric">Charge by size when bigger</label>
         <select id="setVolumetric"><option value="no">No, actual weight only</option><option value="yes">Yes, use volumetric weight</option></select></div>
       <div class="field"><label for="setVolDiv">Volumetric divisor</label><input id="setVolDiv" type="number" min="1000" step="1000"></div>
+      <div class="field"><label for="setPackCm">Packaging adds (cm each side)</label><input id="setPackCm" type="number" min="0" step="0.5"></div>
+      <div class="field"><label for="setShoeBox">Shoebox L x W x H (cm)</label><input id="setShoeBox" type="text" placeholder="33 x 22 x 12"></div>
       <div class="field"><label for="setShipVat">VAT on shipping (%)</label><input id="setShipVat" type="number" min="0" max="30" step="1"></div>
     </div>
 
@@ -586,7 +588,7 @@
 
   var DEFAULTS = {
     currency: 'GBP',
-    v: 5,
+    v: 6,
     brand: 'J&L Leather Co.',
     tagline: 'Handcrafted Leather Goods',
     skuPrefix: 'JL',
@@ -655,7 +657,9 @@
       { upTo: 5, vnd: 1799000 }
     ],
     shipVatPct: 0,
-    volumetric: false,
+    volumetric: true,   // VIO charges the greater of actual weight and L x W x H / 5000
+    packCm: 2,          // packaging adds this many cm to each side
+    shoeBoxCm: { l: 33, w: 22, h: 12 },
     volDivisor: 5000,
     targetMargin: 30,
     costs: {},
@@ -724,7 +728,9 @@
     if (!Array.isArray(sb) || sb.length <= 1) settings.shipBands = clone(DEFAULTS.shipBands);
     settings.v = 4;
   }
-  if ((storedSettings.v || 1) < 5) { settings.vatMode = 'added'; settings.v = 5; }   // eBay adds 20% VAT on top for the buyer
+  if ((storedSettings.v || 1) < 6) { settings.volumetric = true; settings.volDivisor = 5000; }
+  if ((storedSettings.v || 1) < 5) { settings.vatMode = 'added'; settings.v = 5; }
+  settings.v = Math.max(settings.v || 1, 6);   // eBay adds 20% VAT on top for the buyer
   settings.feePct = 0; settings.feeFixed = 0;   // the only eBay fee is Buyer Protection, paid by the buyer
   ['thicknessMm', 'extraPct', 'hardwareKg', 'liningKgM2', 'bp', 'shoes'].forEach(function (k) { settings[k] = Object.assign(clone(DEFAULTS[k]), settings[k] || {}); });
   var OLD_COLOURS = ["Oxblood Red: deep brownish red, like dried blood or dark cherry wood", "Burgundy: wine red with a purple tone", "Cognac: warm orange-brown, like the drink", "Tan: light golden brown", "Honey: light warm yellow-brown", "Chestnut: mid reddish brown", "Brown: plain mid brown", "Dark Brown: deep brown, not red", "Chocolate: very dark brown, almost black", "Black: black", "Olive: brownish green", "Navy: dark blue", "Grey: grey"];
@@ -823,7 +829,9 @@
   function shippingFor(type, size, material, lining) {
     var s = sz(type, size, material, lining);
     var actual = s.kg + (Number(settings.packKg) || 0) + (s.box || 0);
-    var vol = settings.volumetric ? (s.w * s.h * s.d) / (Number(settings.volDivisor) || 5000) : 0;
+    var pad = Number(settings.packCm) || 0, bx = settings.shoeBoxCm || { l: 33, w: 22, h: 12 };
+    var dims = type === 'shoes' ? [bx.l, bx.w, bx.h] : [s.w + pad * 2, s.h + pad * 2, s.d + pad * 2];
+    var vol = settings.volumetric ? (dims[0] * dims[1] * dims[2]) / (Number(settings.volDivisor) || 5000) : 0;
     var charge = Math.round(Math.max(actual, vol) * 1000) / 1000;   // avoid 1.1 + 0.3 = 1.4000000001 slipping into the next band
     var bands = settings.shipBands.map(function (b) { return { upTo: b.upTo === '' || b.upTo == null ? Infinity : Number(b.upTo), vnd: Number(b.vnd) || 0 }; })
       .sort(function (a, b) { return a.upTo - b.upTo; });
@@ -831,7 +839,8 @@
     var over = !band;
     if (over) band = bands[bands.length - 1];
     var cost = band ? band.vnd * (1 + (Number(settings.shipVatPct) || 0) / 100) : 0;
-    return { kg: Math.round(charge * 100) / 100, actual: Math.round(actual * 100) / 100, byVolume: vol > actual, vnd: Math.round(cost),
+    var topKg = bands.filter(function (b) { return b.upTo !== Infinity; }).reduce(function (a, b) { return Math.max(a, b.upTo); }, 0);
+    return { top: topKg, kg: Math.round(charge * 100) / 100, actual: Math.round(actual * 100) / 100, byVolume: vol > actual, vnd: Math.round(cost),
       band: band && band.upTo !== Infinity ? 'up to ' + band.upTo + ' kg' : 'any weight', over: over };
   }
 
@@ -1446,7 +1455,7 @@
       (p.added ? '' : row((settings.vatMode === 'flat' ? 'eBay VAT ' : 'VAT ') + vr + '%', money(-p.vat)));
     var free = settings.freePostage !== false, si = p.shipInfo;
     if (free) html += row('Shipping, you pay <span class="muted">(' + si.kg + ' kg' + (si.byVolume ? ' by size' : '') + ', ' + si.band + ')</span>',
-      money(-p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>' + (si.over ? ' <span class="pill warn">over your top band</span>' : ''));
+      money(-p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>' + (si.over ? ' <span class="pill bad">over ' + si.top + ' kg: ask VIO for a quote</span>' : ''));
     if (buy) {
       html += row('Buy price', money(-p.cost) + ' <span class="muted">(' + vnd(buy) + ')</span>');
       html += row('Profit', money(p.profit) + ' <span class="pill ' + (p.profit <= 0 ? 'bad' : p.margin * 100 < (Number(settings.targetMargin) || 0) ? 'warn' : 'good') + '">' + (p.margin * 100).toFixed(1) + '% margin</span>', 'total');
@@ -1458,7 +1467,7 @@
         (p.added ? row('VAT ' + vr + '%, added for the buyer', money(p.buyerPrice - price)) : '') + row('Buyer Protection fee, paid by buyer', money(p.bpFee)) + row('Buyer pays in total', money(p.buyerPrice + p.bpFee), 'total');
     } else html += '<tr class="gap"><td colspan="2"></td></tr>' +
       row('Postage, paid by buyer <span class="muted">(' + si.kg + ' kg' + (si.byVolume ? ' by size' : '') + ', ' + si.band + ')</span>',
-        money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>' + (si.over ? ' <span class="pill warn">over your top band</span>' : '')) +
+        money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>' + (si.over ? ' <span class="pill bad">over ' + si.top + ' kg: ask VIO for a quote</span>' : '')) +
       row('Buyer Protection fee, paid by buyer', money(p.bpFee)) +
       (p.added ? row('VAT ' + vr + '%, added for the buyer', money(p.buyerPrice - price)) : '') + row('Buyer pays in total', money(p.buyerPrice + p.ship + p.bpFee), 'total');
     current.postage = free ? 0 : p.ship; current.bpFee = p.bpFee;
@@ -1706,6 +1715,8 @@
     $('setVolumetric').value = settings.volumetric ? 'yes' : 'no';
     $('setVolDiv').value = settings.volDivisor;
     $('setShipVat').value = settings.shipVatPct || 0;
+    $('setPackCm').value = settings.packCm;
+    var sb0 = settings.shoeBoxCm || { l: 33, w: 22, h: 12 }; $('setShoeBox').value = sb0.l + ' x ' + sb0.w + ' x ' + sb0.h;
     $('setFreePost').value = settings.freePostage === false ? 'buyer' : 'free';
     var st = '<tr><th>Bag</th><th>W</th><th>H</th><th>D</th><th>Laptop"</th><th>Litres</th><th>Weight (kg)</th></tr>';
     Object.keys(TYPES).filter(function (t) { return t !== 'shoes'; }).forEach(function (t) {
@@ -1763,6 +1774,9 @@
     settings.volumetric = $('setVolumetric').value === 'yes';
     settings.volDivisor = Number($('setVolDiv').value) || 5000;
     settings.shipVatPct = Number($('setShipVat').value) || 0;
+    settings.packCm = Number($('setPackCm').value) || 0;
+    var sbn = ($('setShoeBox').value.match(/[\d.]+/g) || []).map(Number);
+    if (sbn.length === 3) settings.shoeBoxCm = { l: sbn[0], w: sbn[1], h: sbn[2] };
     settings.freePostage = $('setFreePost').value !== 'buyer';
     document.querySelectorAll('[data-st]').forEach(function (i) {
       var v = i.value === '' ? (i.dataset.sk === 'laptop' ? '' : 0) : Number(i.value);
