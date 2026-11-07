@@ -475,6 +475,8 @@
     </div>
     <p class="field-hint" style="margin-top:.5rem">Leather area = the outside of the bag (2 x (W x H + W x D + H x D)) plus the extra % for straps, handles and pockets. Weight = area x thickness x density, plus lining (canvas 0.35 kg/m², suede 0.45 kg/m²) and hardware. Weigh one finished bag and adjust the extra % until the number matches.</p>
 
+    <div class="field" style="margin-bottom:.8rem"><label for="setFreePost">Postage</label>
+      <select id="setFreePost"><option value="free">Free postage: built into my price, I pay shipping</option><option value="buyer">Buyer pays postage on top</option></select></div>
     <h3>Shipping cost by weight (VND)</h3>
     <p class="field-hint" style="margin-bottom:.5rem">Loaded with VIO Shipping ePacket rates to the United Kingdom (from 5 Oct 2026). Shipping uses the first band the packed weight fits in. Leave "up to" empty for any weight above the others.</p>
     <div class="scroll-x band-wrap">
@@ -657,6 +659,7 @@
     costs: {},
     // Buy prices (VND) for bags: cowhide 1,200,000, buffalo hide 1,500,000, any size
     bagCosts: { cow: 1200000, buffalo: 1500000 },
+    freePostage: true,   // postage built into the price: you pay shipping out of it
     shipping: 'Ships within 2 business days, carefully packed in a protective dust bag. Tracking provided on every order.',
     returns: '30-day returns accepted. Item must be unused and in original condition.',
     // Colour names Claude must choose from, each with a short description so it picks consistently.
@@ -847,9 +850,10 @@
     var fees = price * f + fixed;
     var cost = buyVnd > 0 ? buyVnd / (Number(settings.vndPerGbp) || 1) : 0;
     ship = Math.ceil(ship * 100) / 100;   // postage the buyer pays, rounded up to the penny
-    var profit = price - vat - fees - cost;   // the buyer pays postage, so it is not taken off profit
+    var free = settings.freePostage !== false;
+    var profit = price - vat - fees - cost - (free ? ship : 0);   // with free postage you pay shipping out of the price
     var m = (Number(settings.targetMargin) || 0) / 100, denom = keep - f - m;
-    var target = denom > 0 ? Math.ceil((cost + fixed) / denom) : null;
+    var target = denom > 0 ? Math.ceil((cost + fixed + (free ? ship : 0)) / denom) : null;
     return { bpFee: buyerProtection(price), shipInfo: sh, vat: vat, fees: fees, ship: ship, cost: cost, profit: profit, margin: price > 0 ? profit / price : 0, target: target, net: price - vat };
   }
 
@@ -1432,20 +1436,25 @@
     var row = function (k, v, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + k + '</th><td>' + v + '</td></tr>'; };
     var html = row('Sale price', money(price)) +
       row((settings.vatMode === 'flat' ? 'eBay VAT ' : 'VAT ') + vr + '%', money(-p.vat));
+    var free = settings.freePostage !== false, si = p.shipInfo;
+    if (free) html += row('Shipping, you pay <span class="muted">(' + si.kg + ' kg' + (si.byVolume ? ' by size' : '') + ', ' + si.band + ')</span>',
+      money(-p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>' + (si.over ? ' <span class="pill warn">over your top band</span>' : ''));
     if (buy) {
       html += row('Buy price', money(-p.cost) + ' <span class="muted">(' + vnd(buy) + ')</span>');
       html += row('Profit', money(p.profit) + ' <span class="pill ' + (p.profit <= 0 ? 'bad' : p.margin * 100 < (Number(settings.targetMargin) || 0) ? 'warn' : 'good') + '">' + (p.margin * 100).toFixed(1) + '% margin</span>', 'total');
     } else {
       html += row('After VAT', money(p.net), 'total');
     }
-    var si = p.shipInfo;
-    html += '<tr class="gap"><td colspan="2"></td></tr>' +
+    if (free) {
+      html += '<tr class="gap"><td colspan="2"></td></tr>' + row('Postage', 'Free') +
+        row('Buyer Protection fee, paid by buyer', money(p.bpFee)) + row('Buyer pays in total', money(price + p.bpFee), 'total');
+    } else html += '<tr class="gap"><td colspan="2"></td></tr>' +
       row('Postage, paid by buyer <span class="muted">(' + si.kg + ' kg' + (si.byVolume ? ' by size' : '') + ', ' + si.band + ')</span>',
         money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>' + (si.over ? ' <span class="pill warn">over your top band</span>' : '')) +
       row('Buyer Protection fee, paid by buyer', money(p.bpFee)) +
       row('Buyer pays in total', money(price + p.ship + p.bpFee), 'total');
-    current.postage = p.ship; current.bpFee = p.bpFee;
-    if (!price) html = row('Postage, paid by buyer <span class="muted">(' + si.kg + ' kg, ' + si.band + ')</span>', money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>');
+    current.postage = free ? 0 : p.ship; current.bpFee = p.bpFee;
+    if (!price && !free) html = row('Postage, paid by buyer <span class="muted">(' + si.kg + ' kg, ' + si.band + ')</span>', money(p.ship) + ' <span class="muted">(' + vnd(si.vnd) + ')</span>');
     $('outProfit').innerHTML = html;
     var tgt = $('outTarget');
     var need = [!price && 'your price', !buy && 'the buy price'].filter(Boolean);
@@ -1533,7 +1542,7 @@
     }).join('\n'), 'Sizes');
     if (k === 'html') copy(current.html, 'Description HTML code');
     if (k === 'all') copy(
-      'TITLE\n' + current.title + '\n\nPRICE\n' + money(current.price) + '\n\nPOSTAGE (buyer pays)\n' + money(current.postage || 0) + '\n\nQUANTITY\n' + current.qty + (current.shoeSizes ? '\n\nSIZES\n' + Object.keys(current.shoeSizes).map(function (k) { return TYPES.shoes.sizes[k].label + ' x ' + current.shoeSizes[k]; }).join('\n') : '') +
+      'TITLE\n' + current.title + '\n\nPRICE\n' + money(current.price) + '\n\nPOSTAGE\n' + (settings.freePostage !== false ? 'Free' : money(current.postage || 0) + ' (buyer pays)') + '\n\nQUANTITY\n' + current.qty + (current.shoeSizes ? '\n\nSIZES\n' + Object.keys(current.shoeSizes).map(function (k) { return TYPES.shoes.sizes[k].label + ' x ' + current.shoeSizes[k]; }).join('\n') : '') +
       '\n\nSKU\n' + current.sku + '\n\nCONDITION\n' + current.opts.condition +
       '\n\nITEM SPECIFICS\n' + specsText(current.specs) + '\n\nDESCRIPTION\n' + descText(current.html), 'Listing');
   });
@@ -1647,7 +1656,7 @@
     var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
     var lines = [cols.join(',')].concat(saved.map(function (r) {
       var pf = profitFor(r.price, r.buyVnd || 0, r.type, r.size, r.material, r.opts && r.opts.lining);
-      return [r.sku, r.title, r.price, pf.ship.toFixed(2), pf.bpFee.toFixed(2), (r.price + pf.ship + pf.bpFee).toFixed(2), r.buyVnd || '', r.buyVnd ? pf.cost.toFixed(2) : '', r.buyVnd ? pf.profit.toFixed(2) : '', r.buyVnd ? (pf.margin * 100).toFixed(1) : '', r.qty, r.opts.condition, TYPES[r.type].label, r.shoeSizes ? Object.keys(r.shoeSizes).map(function (k) { return TYPES.shoes.sizes[k].label + ' x' + r.shoeSizes[k]; }).join('; ') : TYPES[r.type].sizes[r.size].label,
+      return [r.sku, r.title, r.price, (settings.freePostage !== false ? 0 : pf.ship).toFixed(2), pf.bpFee.toFixed(2), (r.price + (settings.freePostage !== false ? 0 : pf.ship) + pf.bpFee).toFixed(2), r.buyVnd || '', r.buyVnd ? pf.cost.toFixed(2) : '', r.buyVnd ? pf.profit.toFixed(2) : '', r.buyVnd ? (pf.margin * 100).toFixed(1) : '', r.qty, r.opts.condition, TYPES[r.type].label, r.shoeSizes ? Object.keys(r.shoeSizes).map(function (k) { return TYPES.shoes.sizes[k].label + ' x' + r.shoeSizes[k]; }).join('; ') : TYPES[r.type].sizes[r.size].label,
         MATERIALS[r.material].label, r.opts.color, r.opts.finish, r.html].map(q).join(',');
     }));
     var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' });
@@ -1689,6 +1698,7 @@
     $('setVolumetric').value = settings.volumetric ? 'yes' : 'no';
     $('setVolDiv').value = settings.volDivisor;
     $('setShipVat').value = settings.shipVatPct || 0;
+    $('setFreePost').value = settings.freePostage === false ? 'buyer' : 'free';
     var st = '<tr><th>Bag</th><th>W</th><th>H</th><th>D</th><th>Laptop"</th><th>Litres</th><th>Weight (kg)</th></tr>';
     Object.keys(TYPES).filter(function (t) { return t !== 'shoes'; }).forEach(function (t) {
       Object.keys(TYPES[t].sizes).forEach(function (s) {
@@ -1745,6 +1755,7 @@
     settings.volumetric = $('setVolumetric').value === 'yes';
     settings.volDivisor = Number($('setVolDiv').value) || 5000;
     settings.shipVatPct = Number($('setShipVat').value) || 0;
+    settings.freePostage = $('setFreePost').value !== 'buyer';
     document.querySelectorAll('[data-st]').forEach(function (i) {
       var v = i.value === '' ? (i.dataset.sk === 'laptop' ? '' : 0) : Number(i.value);
       settings.sizes[i.dataset.st][i.dataset.ss][i.dataset.sk] = v;
